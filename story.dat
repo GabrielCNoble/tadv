@@ -1,0 +1,15 @@
+{
+    name = "door";
+    actions = {
+        look = (some code );
+        take = "";
+    };
+    name = "door1";
+    actions = {
+        tags = ["lookable", "openable"]
+        look = (code)
+    };
+
+    locked = 0;
+    fuck_me_hard = "REAAALY TRUE";
+}
