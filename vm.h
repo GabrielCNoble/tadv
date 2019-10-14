@@ -123,6 +123,9 @@ enum VM_OPCODES
         ble : branch when lesser than or equal to (N = 1 | Z = 1) 
     */
     VM_OPCODE_BLE,
+
+
+    VM_OPCODE_FCRSH,
     
     VM_OPCODE_LAST,
 };
@@ -216,11 +219,16 @@ struct opcode_1op_t
     OPCODE_FIELDS;
     void *operand;
 };
-
 struct opcode_2op_t
 {
     OPCODE_FIELDS;
     void *operands[2];
+};
+
+struct opcode_3op_t
+{
+    OPCODE_FIELDS;
+    void *operands[3];
 };
 
 struct code_buffer_t

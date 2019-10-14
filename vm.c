@@ -39,7 +39,7 @@ char *reg_names[] = {"r0", "r1", "r2", "r3"};
 
 struct interactable_t *reg_i0 = NULL;
 struct interactable_t *reg_i1 = NULL;
-struct scene_t *reg_sc = NULL;
+struct scene_t *reg_scn = NULL;
 uint64_t reg_pc;
 uint8_t reg_status;
 uint64_t regs[GPR_COUNT];
@@ -76,6 +76,8 @@ void vm_init()
     opcode_info[VM_OPCODE_BL] = OPCODE("bl", sizeof(struct opcode_1op_t), 1);
     opcode_info[VM_OPCODE_BGE] = OPCODE("bge", sizeof(struct opcode_1op_t), 1);
     opcode_info[VM_OPCODE_BLE] = OPCODE("ble", sizeof(struct opcode_1op_t), 1);
+
+    opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0);
 
     
 
@@ -590,7 +592,6 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
             switch(opcode->opcode)
             {
                 case VM_OPCODE_PRINT:
-                case VM_OPCODE_LDI:
                 case VM_OPCODE_LDSC:
                     assembler.parsing_instruction = 1;
 
@@ -616,8 +617,80 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                 break;
 
                 case VM_OPCODE_LDSCA:
-                case VM_OPCODE_LDIA:
+                case VM_OPCODE_LDI:
+                    assembler.parsing_instruction = 1;
+                    {
+                        opcode_2op = (struct opcode_2op_t *)opcode;
 
+                        if(assembler.tokens->token_class == TOKEN_CLASS_IDENTIFIER)
+                        {
+                            opcode_2op->operand0_type = VM_OPCODE_OPERAND_REGISTER;
+
+                            if(opcode->opcode == VM_OPCODE_LDSCA)
+                            {
+                                uint32_t register_index;
+                                for(register_index = 0; register_index < GPR_COUNT; register_index++)
+                                {
+                                    if(!strcmp((char *)assembler.tokens->constant, reg_names[register_index]))
+                                    {
+                                        opcode_2op->operands[0] = regs + register_index;
+                                        break;
+                                    }
+                                }
+
+                                if(register_index == GPR_COUNT)
+                                {
+                                    vm_set_last_error("expecting a register name, got '%s'", vm_translate_token(assembler.tokens));
+                                    return 1;
+                                }
+                            }
+                            else
+                            {
+                                if(!strcmp((char *)assembler.tokens->constant, "ri0"))
+                                {
+                                    opcode_2op->operands[0] = &reg_i0;
+                                }
+                                else if(!strcmp((char *)assembler.tokens->constant, "ri1"))
+                                {
+                                    opcode_2op->operands[0] = &reg_i1;
+                                }
+                                else
+                                {
+                                    vm_set_last_error("expecting an interactable register, got '%s'", vm_translate_token(assembler.tokens));
+                                    return 1;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            vm_set_last_error("expecting a register name, got '%s'", vm_translate_token(assembler.tokens));
+                            return 1;
+                        }
+
+                        if(vm_next_token(&assembler))
+                        {
+                            vm_set_last_error(UNEXPECTED_END_REACHED);
+                            return 1;
+                        }
+
+                        if(assembler.tokens->token_class == TOKEN_CLASS_STRING_CONSTANT)
+                        {
+                            opcode_2op->operand1_type = VM_OPCODE_OPERAND_IMMEDIATE;
+                            opcode_2op->operands[1] = (void *)assembler.tokens->constant;
+                            constant_offset += strlen((char *)assembler.tokens->constant) + 1;
+                        }
+                        else
+                        {
+                            vm_set_last_error("expecting string constant, got '%s'", vm_translate_token(assembler.tokens));
+                            return 1;
+                        }
+
+                        if(vm_next_token(&assembler))
+                        {
+                            vm_set_last_error(UNEXPECTED_END_REACHED);
+                            return 1;
+                        }
+                    }
                 break;
 
                 case VM_OPCODE_MOV:
@@ -1175,7 +1248,7 @@ void vm_set_code_buffer(struct code_buffer_t *code_buffer)
 {
     reg_i0 = NULL;
     reg_i1 = NULL;
-    reg_sc = NULL;
+    reg_scn = NULL;
 
     reg_status = 0;
 
@@ -1352,6 +1425,22 @@ void vm_execute_code(struct code_buffer_t *code_buffer)
             case VM_OPCODE_CMP:
                 vm_alu_op(VM_ALU_OP_SUB, *(uint64_t *)addresses[0], *(uint64_t *)addresses[1]);
             break;
+
+            case VM_OPCODE_LDSC:
+                reg_scn = get_scene(*(char **)addresses[0]);
+            break;
+
+            case VM_OPCODE_LDI:
+                
+            break;
+
+            case VM_OPCODE_FCRSH:
+                {
+                    free(alloca(512));
+                    char *die = NULL;
+                    *die = 5;
+                }
+            break;
         }
 
         opcode = vm_next_opcode();
@@ -1361,6 +1450,7 @@ void vm_execute_code(struct code_buffer_t *code_buffer)
 void vm_print_registers()
 {
     printf("reg_pc: 0x%x\n", reg_pc);
+    printf("reg_scn: 0x%x\n", reg_scn);
     printf("reg_i0: 0x%x\n", reg_i0);
     printf("reg_i1: 0x%x\n", reg_i1);
     printf("Z: %d | N: %d\n", (reg_status & VM_STATUS_FLAG_ZERO) && 1, (reg_status & VM_STATUS_FLAG_NEGATIVE) && 1);

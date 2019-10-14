@@ -15,4 +15,6 @@ struct scene_t
 
 void load_scenes();
 
+struct scene_t *get_scene(char *name);
+
 #endif

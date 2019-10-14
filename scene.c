@@ -29,9 +29,9 @@ void load_scenes()
     struct dat_attrib_t *intro;
 
 
-    struct token_t *tokens = vm_lex_code(file_buffer);
-    vm_print_tokens(tokens);
-    return;
+    // struct token_t *tokens = vm_lex_code(file_buffer);
+    // vm_print_tokens(tokens);
+    // return;
 
 
     attribs = dat_parse_dat_string(file_buffer);
@@ -65,8 +65,25 @@ void load_scenes()
             else
             {
                 vm_execute_code(&scene->code);
+                vm_print_registers();
             }
         }
         scene = scene->next;
     }
+}
+
+struct scene_t *get_scene(char *name)
+{
+    struct scene_t *scene = scenes;
+
+    while(scene)
+    {
+        if(!strcmp(scene->name, name))
+        {
+            break;
+        }
+        scene = scene->next;
+    }
+
+    return scene;
 }

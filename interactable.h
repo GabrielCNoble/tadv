@@ -1,16 +1,21 @@
 #ifndef INTERACTABLE_H
 #define INTERACTABLE_H
 #include "vm.h"
+#include "dat.h"
 
-
-enum INTERACTABLE_FLAGS
+enum INTERACTION_TYPE
 {
-    INTERACTABLE_FLAG_TAKEABLE = 1,
-    INTERACTABLE_FLAG_DROPABLE = 1 << 1,
-    INTERACTABLE_FLAG_PUTABLE = 1 << 2,
-    INTERACTABLE_FLAG_PRESSABLE = 1 << 3,
-    INTERACTABLE_FLAG_USABLE = 1 << 4,
-    INTERACTABLE_FLAG_LOOKABLE = 1 << 5,
+    INTERACTION_TYPE_INSPECT = 0,
+    INTERACTION_TYPE_TAKE,
+    INTERACTION_TYPE_DROP,
+    INTERACTION_TYPE_WALK,
+    INTERACTION_TYPE_OPEN,
+    INTERACTION_TYPE_CLOSE,
+    INTERACTION_TYPE_EQUIP,
+    INTERACTION_TYPE_UNEQUIP,
+    INTERACTION_TYPE_USE,
+    INTERACTION_TYPE_USE_ON,
+    INTERACTION_TYPE_COMBINE,
 };
 
 struct interactable_t
@@ -18,9 +23,10 @@ struct interactable_t
     struct interactable_t *next;
     struct interactable_t *prev;
     struct interactable_list_t *list;
+    struct dat_attrib_t *attribs;
     char *name;
     uint32_t flags;
-    struct code_buffer_t code;
+    // struct code_buffer_t code;
 };
 
 struct interactable_list_t
