@@ -116,7 +116,7 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
     struct dat_attrib_t *attrib = NULL;
     struct dat_attrib_t *attribs = NULL;
     struct token_t *token;
-    char *attrib_name;
+    // char *attrib_name;
     uint32_t has_opening_brace = 0;
     
     token = *tokens;

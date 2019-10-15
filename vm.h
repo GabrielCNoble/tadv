@@ -87,6 +87,26 @@ enum VM_OPCODES
     VM_OPCODE_CMP,
 
     /*
+        cmps: compares two strings
+    */
+    VM_OPCODE_CMPS,
+
+    /*
+        cmpslc: transform the strings to lowercase, then compare them 
+    */
+    VM_OPCODE_CMPSLC,
+
+    /*
+        lcstr: converts a string to lowercase
+    */
+    VM_OPCODE_LCSTR,
+
+    /*
+        cmpsstr: compares a substring to a string
+    */
+    VM_OPCODE_CMPSSTR,
+
+    /*
         jmp: performs an unconditional jump.
 
         'jmp address', where address is the absotule address to  
@@ -123,6 +143,11 @@ enum VM_OPCODES
         ble : branch when lesser than or equal to (N = 1 | Z = 1) 
     */
     VM_OPCODE_BLE,
+
+
+    VM_OPCODE_IN,
+
+    VM_OPCODE_RET,
 
 
     VM_OPCODE_FCRSH,
@@ -267,7 +292,7 @@ uint64_t vm_alu_op(uint32_t op, uint64_t operand0, uint64_t operand1);
 
 // void vm_update_flags(uint32_t affect_flags, uint64_t operand0, uint64_t operand1, uint64_t result);
 
-void vm_execute_code(struct code_buffer_t *code_buffer);
+uint64_t vm_execute_code(struct code_buffer_t *code_buffer);
 
 void vm_print_registers();
 

@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "interactable.h"
 #include "scene.h"
@@ -136,7 +137,7 @@ struct vm_assembler_t
    
 void vm_init()
 { 
-    opcode_info[VM_OPCODE_PRINT] = OPCODE("print", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
+    opcode_info[VM_OPCODE_PRINT] = OPCODE("print", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT | OPERAND_TYPE_GP_REGISTER, 0, 0);
     opcode_info[VM_OPCODE_LDSC] = OPCODE("ldsc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
     opcode_info[VM_OPCODE_LDSCA] = OPCODE("ldsca", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_STRING_CONSTANT, 0);
     opcode_info[VM_OPCODE_CHGSC] = OPCODE("chgsc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
@@ -194,6 +195,26 @@ void vm_init()
                                                                                OPERAND_TYPE_MEMORY_REGISTER | 
                                                                                OPERAND_TYPE_INT_CONSTANT, 0);
 
+    opcode_info[VM_OPCODE_CMPS] = OPCODE("cmps", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER | 
+                                                                                 OPERAND_TYPE_STRING_CONSTANT,
+                                                                                 
+                                                                                 OPERAND_TYPE_GP_REGISTER |
+                                                                                 OPERAND_TYPE_STRING_CONSTANT, 0);  
+
+    opcode_info[VM_OPCODE_CMPSLC] = OPCODE("cmpslc", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER | 
+                                                                                 OPERAND_TYPE_STRING_CONSTANT,
+                                                                                 
+                                                                                 OPERAND_TYPE_GP_REGISTER |
+                                                                                 OPERAND_TYPE_STRING_CONSTANT, 0);   
+
+    opcode_info[VM_OPCODE_CMPSSTR] = OPCODE("cmpsstr", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER | 
+                                                                                OPERAND_TYPE_STRING_CONSTANT,
+                                                                                
+                                                                                OPERAND_TYPE_GP_REGISTER |
+                                                                                OPERAND_TYPE_STRING_CONSTANT, 0);                                                                              
+
+    opcode_info[VM_OPCODE_LCSTR] = OPCODE("lcstr", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER,0 , 0);                                                                            
+
 
     opcode_info[VM_OPCODE_JMP] = OPCODE("jmp", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                                OPERAND_TYPE_INT_CONSTANT |
@@ -222,6 +243,9 @@ void vm_init()
 
     opcode_info[VM_OPCODE_BLE] = OPCODE("ble", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                                OPERAND_TYPE_LABEL, 0, 0);
+
+    opcode_info[VM_OPCODE_IN] = OPCODE("in", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER, 0, 0);
+    opcode_info[VM_OPCODE_RET] = OPCODE("ret", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | OPERAND_TYPE_INT_CONSTANT, 0, 0);
 
     opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0, 0, 0, 0);
 
@@ -291,13 +315,13 @@ struct token_t *vm_lex_code(const char *src)
 
     while(src[index])
     {
-        while(char_map[src[index]] == CHAR_TYPE_BLANK && src[index] != '\0') index++;
+        while(char_map[(uint32_t)src[index]] == CHAR_TYPE_BLANK && src[index] != '\0') index++;
 
         if(src[index] != '\0')
         {
             token_class = TOKEN_CLASS_UNKNOWN;
 
-            if(char_map[src[index]] == CHAR_TYPE_PUNCTUATOR)
+            if(char_map[(uint32_t)src[index]] == CHAR_TYPE_PUNCTUATOR)
             {
                 if(src[index] == '"' || src[index] == '(')
                 {
@@ -426,13 +450,13 @@ struct token_t *vm_lex_code(const char *src)
             }
             else
             {
-                if(char_map[src[index]] == CHAR_TYPE_LETTER)
+                if(char_map[(uint32_t)src[index]] == CHAR_TYPE_LETTER)
                 {
                     token_class = TOKEN_CLASS_IDENTIFIER;
                     token_type = 0;
                     token_str_index = 0;
 
-                    while(!(char_map[src[index]] & (CHAR_TYPE_BLANK | CHAR_TYPE_PUNCTUATOR)))
+                    while(!(char_map[(uint32_t)src[index]] & (CHAR_TYPE_BLANK | CHAR_TYPE_PUNCTUATOR)))
                     {
                         token_str[token_str_index++] = src[index++];
                     }
@@ -455,7 +479,7 @@ struct token_t *vm_lex_code(const char *src)
                     token_type = 0;
                     token_str_index = 0;
 
-                    while(char_map[src[index]] == CHAR_TYPE_NUMBER)
+                    while(char_map[(uint32_t)src[index]] == CHAR_TYPE_NUMBER)
                     {
                         token_str[token_str_index++] = src[index++];
                     }
@@ -466,19 +490,19 @@ struct token_t *vm_lex_code(const char *src)
             
                         token_str[token_str_index++] = src[index++];
 
-                        if(char_map[src[index]] != CHAR_TYPE_NUMBER)
+                        if(char_map[(uint32_t)src[index]] != CHAR_TYPE_NUMBER)
                         {
                             vm_set_last_error("unexpected token %c", src[index]);
                             return NULL;
                         }
 
-                        while(char_map[src[index]] == CHAR_TYPE_NUMBER)
+                        while(char_map[(uint32_t)src[index]] == CHAR_TYPE_NUMBER)
                         {
                             token_str[token_str_index++] = src[index++];
                         }
 
                         /* TODO: allow for scientific notation? */
-                        if(char_map[src[index]] != CHAR_TYPE_BLANK)
+                        if(char_map[(uint32_t)src[index]] != CHAR_TYPE_BLANK)
                         {
                             vm_set_last_error("unexpected token %c", src[index]);
                             return NULL;
@@ -576,8 +600,8 @@ void vm_print_tokens(struct token_t *tokens)
 
 char *vm_translate_token(struct token_t *token)
 {
-    char *token_class;
-    char *token_type;
+    // char *token_class;
+    // char *token_type;
 
     static char fmt[512];
 
@@ -877,6 +901,13 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
                     case TOKEN_CLASS_INTEGER_CONSTANT:
                         /* integer constant */
+
+                        if(!(opcode_info[opcode->opcode].allowed_operand_types[operand_index] & OPERAND_TYPE_INT_CONSTANT))
+                        {
+                            vm_set_last_error("integer constant not allowed for operand %d of %s", operand_index, opcode_info[opcode->opcode].name);
+                            return 1;
+                        }
+
                         operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_IMMEDIATE;
                         opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
                         constant_offset += sizeof(uint64_t);
@@ -1340,7 +1371,7 @@ uint64_t vm_alu_op(uint32_t op, uint64_t operand0, uint64_t operand1)
     return result;
 }
 
-void vm_execute_code(struct code_buffer_t *code_buffer)
+uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
 {
     struct opcode_t *opcode;
     struct opcode_3op_t *opcode_3op;
@@ -1348,14 +1379,22 @@ void vm_execute_code(struct code_buffer_t *code_buffer)
     // struct opcode_2op_t *opcode_2op;
     void *addresses[3];
     uint32_t operand_classes[3];
+
+    static char input_str[512];
+    static char lc_str0[512];
+    static char lc_str1[512];
+    char *lc_str0ptr = lc_str0;
+    char *lc_str1ptr = lc_str1;
     
     vm_set_code_buffer(code_buffer);
     opcode = vm_next_opcode();
 
-    uint64_t zero_mask = 0xffffffffffffffff;
-    uint64_t sign_mask = 0x8000000000000000;
+    // uint64_t zero_mask = 0xffffffffffffffff;
+    // uint64_t sign_mask = 0x8000000000000000;
     uint64_t value0;
-    uint64_t value1;
+    // uint64_t value1;
+    char *str0;
+    char *str1;
 
     uint32_t perform_jump;
     
@@ -1456,12 +1495,66 @@ void vm_execute_code(struct code_buffer_t *code_buffer)
                 vm_alu_op(VM_ALU_OP_SUB, *(uint64_t *)addresses[0], *(uint64_t *)addresses[1]);
             break;
 
+            case VM_OPCODE_CMPSLC:
+                str0 = *(char **)addresses[0];
+                str1 = *(char **)addresses[1];
+
+                value0 = 0;
+                while(str0[value0])
+                {
+                    lc_str0ptr[value0] = tolower(str0[value0]);
+                    value0++;
+                }
+                lc_str0ptr[value0] = '\0';
+
+                value0 = 0;
+                while(str1[value0])
+                {
+                    lc_str1ptr[value0] = tolower(str1[value0]);
+                    value0++;
+                }
+                lc_str1ptr[value0] = '\0';
+
+                addresses[0] = &lc_str0ptr;
+                addresses[1] = &lc_str1ptr;
+
+            case VM_OPCODE_CMPS:
+                value0 = strcmp(*(char **)addresses[0], *(char **)addresses[1]);
+                vm_alu_op(VM_ALU_OP_SUB, value0, 0);
+            break;
+
+            case VM_OPCODE_CMPSSTR:
+                str0 = *(char **)addresses[0];
+            break;
+
+            case VM_OPCODE_LCSTR:
+                str0 = *(char **)addresses[0];
+
+                value0 = 0;
+                while(str0[value0])
+                {
+                    str0[value0] = tolower(str0[value0]);
+                    value0++;
+                }
+            break;
+
             case VM_OPCODE_LDSC:
                 reg_scn = get_scene(*(char **)addresses[0]);
             break;
 
             case VM_OPCODE_LDI:
                 
+            break;
+
+            case VM_OPCODE_IN:
+                fgets(input_str, 512, stdin);
+                input_str[strlen(input_str) - 1] = '\0';
+                value0 = vm_alu_op(VM_ALU_OP_PASS, (uint64_t) input_str, 0);
+                memcpy(addresses[0], &value0, sizeof(uint64_t));
+            break;
+
+            case VM_OPCODE_RET:
+                return *(uint64_t *)addresses[0];
             break;
 
             case VM_OPCODE_FCRSH:
@@ -1475,20 +1568,22 @@ void vm_execute_code(struct code_buffer_t *code_buffer)
 
         opcode = vm_next_opcode();
     }
+
+    return 0;
 }
 
 void vm_print_registers()
 {
-    printf("reg_pc: 0x%x\n", reg_pc);
-    printf("reg_scn: 0x%x\n", reg_scn);
+    printf("reg_pc: 0x%p\n", (void *)reg_pc);
+    printf("reg_scn: 0x%p\n", (void *)reg_scn);
     printf("Z: %d | N: %d\n", (reg_status & VM_STATUS_FLAG_ZERO) && 1, (reg_status & VM_STATUS_FLAG_NEGATIVE) && 1);
     for(uint32_t i = 0; i < I_REGS_COUNT; i++)
     {
-        printf("%s: 0x%x\n", i_reg_names[i], i_regs[i]);
+        printf("%s: 0x%p\n", i_reg_names[i], i_regs[i]);
     }
     for(uint32_t i = 0; i < GP_REGS_COUNT; i++)
     {
-        printf("%s: %d\n", gp_reg_names[i], gp_regs[i]);
+        printf("%s: %I64d\n", gp_reg_names[i], gp_regs[i]);
     }
 }
 
