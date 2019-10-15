@@ -2,9 +2,13 @@
     scene = "test";
 
     logic = (
-        print "big shit\n";
-        print "big pile of shit\n";
-        print "big ol steaming pile of shit\n\n";
-        ldsc "test";
+        mov r0, 15;
+        mov ri0, 500;
+        mov r1, ri0;
+        again:
+        print "shit\n";
+        dec r0;
+        cmp r0, 0;
+        bne again;
     );
 }

@@ -35,6 +35,7 @@ void load_scenes()
 
 
     attribs = dat_parse_dat_string(file_buffer);
+    
     attrib = attribs;
 
     while(attrib)

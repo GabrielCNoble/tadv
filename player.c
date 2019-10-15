@@ -23,7 +23,7 @@ void p_select_item(struct interactable_t *item)
 
 void p_use_selected()
 {
-    it_interact(selected_item, INTERACTABLE_FLAG_USABLE);
+    // it_interact(selected_item, INTERACTABLE_FLAG_USABLE);
     selected_item = NULL;
 }
 

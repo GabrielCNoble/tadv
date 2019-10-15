@@ -18,66 +18,212 @@ enum CHAR_TYPE
 };
 
 
+enum OPERAND_TYPES
+{
+    OPERAND_TYPE_INT_CONSTANT = 1,
+    OPERAND_TYPE_FLOAT_CONSTANT =  1 << 1,
+    OPERAND_TYPE_STRING_CONSTANT = 1 << 2,
+
+    /* 
+        opcode label;
+
+        This is mostly useful for jumps, where
+        one writes: 
+        
+        jmp label; 
+    */
+    OPERAND_TYPE_LABEL = 1 << 3,
+
+    /*
+        opcode offset label;
+
+        This is mostly useful to store the address of 
+        a label. For example:
+
+        mov r0, offset label;
+
+        Here, the offset of label 'label' has
+        been stored in r0.
+    */
+    OPERAND_TYPE_LABEL_OFFSET = 1 << 4,
+    OPERAND_TYPE_GP_REGISTER = 1 << 5,
+
+    OPERAND_TYPE_I_REGISTER = 1 << 6,
+
+    /*
+        opcode [register]
+
+        Here register contains an pointer, and
+        it has to be dereferenced. This is useful
+        for a handful of things.
+
+        mov [r1], r0;
+
+        Assuming r1 contains a valid memory address,
+        this mov will put the contents of r0 into
+        whatever r1 points to.
+    */
+    OPERAND_TYPE_MEMORY_REGISTER = 1 << 7,
+
+    /*
+        opcode [integer constant]
+
+        This has the same use case as a register
+        containing an pointer. The difference is 
+        that the value used as a pointer will be
+        determined during code assembly. A constant
+        address can be, for example, a global variable
+    */
+    OPERAND_TYPE_MEMORY_INT_CONSTANT = 1 << 8,
+};
+
+
 struct opcode_info_t
 {
     char *name;
     uint32_t offset;
     uint32_t operand_count;
+    uint16_t allowed_operand_types[3];
 };
+  
+struct register_info_t
+{
+    char *name;
+    void *address;
+};
+  
+#define OPCODE(n, o, oc, a0, a1, a2)                            \
+    /* designated initializers rock :) */                       \
+    (struct opcode_info_t){.name = n,                           \
+                           .offset = o,                         \
+                           .operand_count = oc,                 \
+                           .allowed_operand_types[0] = a0,      \
+                           .allowed_operand_types[1] = a1,      \
+                           .allowed_operand_types[2] = a2}
 
-#define OPCODE(name, offset, operand_count) (struct opcode_info_t){name, offset, operand_count}
-
-// char *opcode_names[VM_OPCODE_LAST] = {};
-// uint32_t opcode_offsets[VM_OPCODE_LAST] = {};
 
 struct opcode_info_t opcode_info[VM_OPCODE_LAST] = {};
 char char_map[512] = {CHAR_TYPE_BLANK};
-struct token_t *free_tokens = NULL;
-char *reg_names[] = {"r0", "r1", "r2", "r3"};
 
-#define GPR_COUNT 4
-
-struct interactable_t *reg_i0 = NULL;
-struct interactable_t *reg_i1 = NULL;
 struct scene_t *reg_scn = NULL;
 uint64_t reg_pc;
 uint8_t reg_status;
-uint64_t regs[GPR_COUNT];
+char *gp_reg_names[] = {"r0", "r1", "r2", "r3"};
+char *i_reg_names[] = {"ri0", "ri1"};
+
+#define GP_REGS_COUNT (sizeof(gp_reg_names) / sizeof(gp_reg_names[0]))
+#define I_REGS_COUNT (sizeof(i_reg_names) / sizeof(i_reg_names[0]))
+
+uint64_t gp_regs[GP_REGS_COUNT];
+struct interactible_t *i_regs[I_REGS_COUNT];
+
+
+
+
 struct code_buffer_t current_code_buffer;
+
+/* tokens freed through vm_free_token, so they can be reused whenever something
+has to be lexed during runtime (useful for instructions that have strings as 
+operands) */
+struct token_t *free_tokens = NULL;
 
 struct vm_assembler_t
 {
     uint32_t parsing_instruction;
     struct token_t *prev_token;
     struct token_t *tokens;
-};
-
+}; 
+   
 void vm_init()
-{
-    opcode_info[VM_OPCODE_PRINT] = OPCODE("print", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_LDSC] = OPCODE("ldsc", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_LDSCA] = OPCODE("ldisca", sizeof(struct opcode_2op_t), 2);
-    opcode_info[VM_OPCODE_CHGSC] = OPCODE("chgsc", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_LDI] = OPCODE("ldi", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_LDIA] = OPCODE("ldia", sizeof(struct opcode_2op_t), 2);
-    opcode_info[VM_OPCODE_MOV] = OPCODE("mov", sizeof(struct opcode_2op_t), 2);
+{ 
+    opcode_info[VM_OPCODE_PRINT] = OPCODE("print", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
+    opcode_info[VM_OPCODE_LDSC] = OPCODE("ldsc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
+    opcode_info[VM_OPCODE_LDSCA] = OPCODE("ldsca", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_STRING_CONSTANT, 0);
+    opcode_info[VM_OPCODE_CHGSC] = OPCODE("chgsc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
+    opcode_info[VM_OPCODE_LDI] = OPCODE("ldi", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_I_REGISTER, OPERAND_TYPE_STRING_CONSTANT, 0);
+    opcode_info[VM_OPCODE_LDIA] = OPCODE("ldia", sizeof(struct opcode_3op_t), 3, OPERAND_TYPE_I_REGISTER, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_STRING_CONSTANT);
 
-    opcode_info[VM_OPCODE_INC] = OPCODE("inc", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_DEC] = OPCODE("dec", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_AND] = OPCODE("and", sizeof(struct opcode_2op_t), 2);
-    opcode_info[VM_OPCODE_OR] = OPCODE("or", sizeof(struct opcode_2op_t), 2);
-    opcode_info[VM_OPCODE_XOR] = OPCODE("xor", sizeof(struct opcode_2op_t), 2);
+    opcode_info[VM_OPCODE_MOV] = OPCODE("mov", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_I_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER, 
+                                                                               
+                                                                               OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_I_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER |
+                                                                               OPERAND_TYPE_INT_CONSTANT |
+                                                                               OPERAND_TYPE_LABEL_OFFSET, 0);
 
-    opcode_info[VM_OPCODE_CMP] = OPCODE("cmp", sizeof(struct opcode_2op_t), 2);
-    opcode_info[VM_OPCODE_JMP] = OPCODE("jmp", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_BE] = OPCODE("be", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_BNE] = OPCODE("bne", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_BG] = OPCODE("bg", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_BL] = OPCODE("bl", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_BGE] = OPCODE("bge", sizeof(struct opcode_1op_t), 1);
-    opcode_info[VM_OPCODE_BLE] = OPCODE("ble", sizeof(struct opcode_1op_t), 1);
 
-    opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0);
+    opcode_info[VM_OPCODE_INC] = OPCODE("inc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_MEMORY_REGISTER, 0, 0);
+
+
+    opcode_info[VM_OPCODE_DEC] = OPCODE("dec", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER, 0, 0);
+
+
+    opcode_info[VM_OPCODE_AND] = OPCODE("and", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER, 
+                                                                               
+                                                                               OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER |
+                                                                               OPERAND_TYPE_INT_CONSTANT, 0);
+
+
+    opcode_info[VM_OPCODE_OR] = OPCODE("or", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
+                                                                             OPERAND_TYPE_MEMORY_REGISTER, 
+                                                                             
+                                                                             OPERAND_TYPE_GP_REGISTER |
+                                                                             OPERAND_TYPE_MEMORY_REGISTER |
+                                                                             OPERAND_TYPE_INT_CONSTANT, 0);
+
+
+    opcode_info[VM_OPCODE_XOR] = OPCODE("xor", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER, 
+                                                                               
+                                                                               OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_MEMORY_REGISTER |
+                                                                               OPERAND_TYPE_INT_CONSTANT, 0);
+
+
+    opcode_info[VM_OPCODE_CMP] = OPCODE("cmp", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER | 
+                                                                               OPERAND_TYPE_INT_CONSTANT, 
+                                                                               
+                                                                               OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_MEMORY_REGISTER | 
+                                                                               OPERAND_TYPE_INT_CONSTANT, 0);
+
+
+    opcode_info[VM_OPCODE_JMP] = OPCODE("jmp", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_INT_CONSTANT |
+                                                                               OPERAND_TYPE_LABEL, 0, 0);
+
+
+    opcode_info[VM_OPCODE_BE] = OPCODE("be", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
+                                                                             OPERAND_TYPE_LABEL, 0, 0);
+
+
+    opcode_info[VM_OPCODE_BNE] = OPCODE("bne", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_LABEL, 0, 0);
+
+
+    opcode_info[VM_OPCODE_BG] = OPCODE("bg", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                             OPERAND_TYPE_LABEL, 0, 0);
+
+
+    opcode_info[VM_OPCODE_BL] = OPCODE("bl", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                             OPERAND_TYPE_LABEL, 0, 0);
+
+
+    opcode_info[VM_OPCODE_BGE] = OPCODE("bge", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_LABEL, 0, 0);
+
+
+    opcode_info[VM_OPCODE_BLE] = OPCODE("ble", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_LABEL, 0, 0);
+
+    opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0, 0, 0, 0);
 
     
 
@@ -175,7 +321,7 @@ struct token_t *vm_lex_code(const char *src)
                     {
                         if(src[index] == '\0')
                         {
-                            vm_set_last_error("missing '\"' at the end of string constant");
+                            vm_set_last_error("missing '%c' at the end of string constant", end_char);
                             return NULL;
                         }
 
@@ -562,9 +708,13 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
     uint32_t constant_offset = 0;
     char *code;
     struct opcode_t *opcode;
-    struct opcode_1op_t *opcode_1op;
-    struct opcode_2op_t *opcode_2op;
+    // struct opcode_1op_t *opcode_1op;
+    // struct opcode_2op_t *opcode_2op;
+    struct opcode_3op_t *opcode_3op;
     struct vm_assembler_t assembler;
+    uint32_t operand_classes[3];
+    uint32_t operand_size;
+    uint32_t register_index;
 
     struct code_label_t *labels = NULL;
     struct code_label_t *next_label = NULL;
@@ -583,29 +733,63 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
             opcode->opcode = assembler.tokens->constant;
             opcode->operand_count = opcode_info[opcode->opcode].operand_count;
 
+            // printf("%s\n", vm_translate_token(assembler.tokens));
+
             if(vm_next_token(&assembler))
             {
                 vm_set_last_error(UNEXPECTED_END_REACHED);
                 return 1;
             }
 
-            switch(opcode->opcode)
+            
+            // printf("%s\n", vm_translate_token(assembler.tokens));
+
+            assembler.parsing_instruction = 1;
+            opcode_3op = (struct opcode_3op_t *)opcode;
+
+            operand_classes[0] = VM_OPCODE_OPERAND_CLASS_NONE;
+            operand_classes[1] = VM_OPCODE_OPERAND_CLASS_NONE;
+            operand_classes[2] = VM_OPCODE_OPERAND_CLASS_NONE;
+
+            // printf("%d\n", opcode->operand_count);
+
+            for(uint32_t operand_index = 0; operand_index < opcode->operand_count; operand_index++)
             {
-                case VM_OPCODE_PRINT:
-                case VM_OPCODE_LDSC:
-                    assembler.parsing_instruction = 1;
+                if(assembler.tokens->token_class == TOKEN_CLASS_PUNCTUATOR &&
+                    assembler.tokens->token_type == TOKEN_PUNCTUATOR_OBRACKET)
+                {
+                    /* [ */
 
+                    /* memory operand means the value will be used as a pointer */
+                    operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_MEMORY;
+
+                    if(vm_next_token(&assembler))
                     {
-                        opcode_1op = (struct opcode_1op_t *)opcode;
+                        vm_set_last_error(UNEXPECTED_END_REACHED);
+                        return 1;
+                    }
+                }
 
-                        if(assembler.tokens->token_class != TOKEN_CLASS_STRING_CONSTANT)
+                
+                // printf("%s\n", vm_translate_token(assembler.tokens));
+
+                switch(assembler.tokens->token_class)
+                {
+                    case TOKEN_CLASS_STRING_CONSTANT:
+                        if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_MEMORY)
                         {
-                            vm_set_last_error("expecting string constant after print, got '%s'", vm_translate_token(assembler.tokens));
+                            vm_set_last_error("cannot use string constant as pointer");
                             return 1;
-                        } 
+                        }
 
-                        opcode_1op->operand0_type = VM_OPCODE_OPERAND_IMMEDIATE;
-                        opcode_1op->operand = (void *)assembler.tokens->constant;
+                        if(!(opcode_info[opcode->opcode].allowed_operand_types[operand_index] & OPERAND_TYPE_STRING_CONSTANT))
+                        {
+                            vm_set_last_error("string constant not allowed for operand %d of %s", operand_index, opcode_info[opcode->opcode].name);
+                            return 1;
+                        }
+
+                        operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT;
+                        opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
                         constant_offset += strlen((char *)assembler.tokens->constant) + 1;
 
                         if(vm_next_token(&assembler))
@@ -613,58 +797,75 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                             vm_set_last_error(UNEXPECTED_END_REACHED);
                             return 1;
                         }
-                    }
-                break;
+                    break;
 
-                case VM_OPCODE_LDSCA:
-                case VM_OPCODE_LDI:
-                    assembler.parsing_instruction = 1;
-                    {
-                        opcode_2op = (struct opcode_2op_t *)opcode;
-
-                        if(assembler.tokens->token_class == TOKEN_CLASS_IDENTIFIER)
+                    /* r0, r1, r2, r3, ri0, ri1 */
+                    case TOKEN_CLASS_IDENTIFIER:
+                        
+                        if(operand_classes[operand_index] != VM_OPCODE_OPERAND_CLASS_MEMORY)
                         {
-                            opcode_2op->operand0_type = VM_OPCODE_OPERAND_REGISTER;
+                            operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_REGISTER;
+                        }
 
-                            if(opcode->opcode == VM_OPCODE_LDSCA)
+                        for(register_index = 0; register_index < GP_REGS_COUNT; register_index++)
+                        {
+                            if(!strcmp(gp_reg_names[register_index], (char *)assembler.tokens->constant))
                             {
-                                uint32_t register_index;
-                                for(register_index = 0; register_index < GPR_COUNT; register_index++)
-                                {
-                                    if(!strcmp((char *)assembler.tokens->constant, reg_names[register_index]))
-                                    {
-                                        opcode_2op->operands[0] = regs + register_index;
-                                        break;
-                                    }
-                                }
+                                opcode_3op->operands[operand_index] = (gp_regs + register_index);
+                                break;
+                            }
+                        }
 
-                                if(register_index == GPR_COUNT)
+                        if(register_index == GP_REGS_COUNT)
+                        {
+                            /* the operand is not a gpr, so try the interactible registers */
+
+                            for(register_index = 0; register_index < I_REGS_COUNT; register_index++)
+                            {
+                                if(!strcmp(i_reg_names[register_index], (char *)assembler.tokens->constant))
                                 {
-                                    vm_set_last_error("expecting a register name, got '%s'", vm_translate_token(assembler.tokens));
-                                    return 1;
+                                    opcode_3op->operands[operand_index] = (i_regs + register_index);
+                                    break;
                                 }
                             }
-                            else
+
+                            if(register_index == I_REGS_COUNT)
                             {
-                                if(!strcmp((char *)assembler.tokens->constant, "ri0"))
+                                /* not an interactible register, so test to see if this instruction allows labels */
+                                if(opcode_info[opcode->opcode].allowed_operand_types[operand_index] & OPERAND_TYPE_LABEL)
                                 {
-                                    opcode_2op->operands[0] = &reg_i0;
-                                }
-                                else if(!strcmp((char *)assembler.tokens->constant, "ri1"))
-                                {
-                                    opcode_2op->operands[0] = &reg_i1;
+                                    /* we store the name of the label for now, and set the type
+                                    of this operand to none. Once all the code has been assembled, 
+                                    and all the labels discovered, we patch the jmp instructions with 
+                                    the correct address */
+                                    opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
+                                    operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_NONE;
                                 }
                                 else
                                 {
-                                    vm_set_last_error("expecting an interactable register, got '%s'", vm_translate_token(assembler.tokens));
+                                    vm_set_last_error("expecting a register name for operand %d, got '%s'", operand_index, vm_translate_token(assembler.tokens));
+                                    return 1;
+                                }  
+                            } 
+                            else
+                            {
+                                /* this is an interactible register, but... does this instruction allow this register for
+                                this operand? */
+                                if(!(opcode_info[opcode->opcode].allowed_operand_types[operand_index] & OPERAND_TYPE_I_REGISTER))
+                                {
+                                    vm_set_last_error("interactible register not allowed for operand %d of %s", operand_index, opcode_info[opcode->opcode].name);
                                     return 1;
                                 }
                             }
                         }
                         else
                         {
-                            vm_set_last_error("expecting a register name, got '%s'", vm_translate_token(assembler.tokens));
-                            return 1;
+                            /* this is a gpr, but... does this instruction allow a gpr for this operand? */
+                            if(!(opcode_info[opcode->opcode].allowed_operand_types[operand_index] & OPERAND_TYPE_GP_REGISTER))
+                            {
+                                vm_set_last_error("general purpouse register not allowed for operand %d of %s", operand_index, opcode_info[opcode->opcode].name);
+                                return 1;
+                            }
                         }
 
                         if(vm_next_token(&assembler))
@@ -672,241 +873,68 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                             vm_set_last_error(UNEXPECTED_END_REACHED);
                             return 1;
                         }
+                    break;
 
-                        if(assembler.tokens->token_class == TOKEN_CLASS_STRING_CONSTANT)
-                        {
-                            opcode_2op->operand1_type = VM_OPCODE_OPERAND_IMMEDIATE;
-                            opcode_2op->operands[1] = (void *)assembler.tokens->constant;
-                            constant_offset += strlen((char *)assembler.tokens->constant) + 1;
-                        }
-                        else
-                        {
-                            vm_set_last_error("expecting string constant, got '%s'", vm_translate_token(assembler.tokens));
-                            return 1;
-                        }
+                    case TOKEN_CLASS_INTEGER_CONSTANT:
+                        /* integer constant */
+                        operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_IMMEDIATE;
+                        opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
+                        constant_offset += sizeof(uint64_t);
 
                         if(vm_next_token(&assembler))
                         {
                             vm_set_last_error(UNEXPECTED_END_REACHED);
                             return 1;
                         }
-                    }
-                break;
+                    break;
 
-                case VM_OPCODE_MOV:
-                case VM_OPCODE_CMP:
-                case VM_OPCODE_AND:
-                case VM_OPCODE_OR:
-                case VM_OPCODE_XOR:
-                    assembler.parsing_instruction = 1;
+                    default:
+                        vm_set_last_error("expecting operand %d for instruction %s", operand_index, opcode_info[opcode->opcode].name);
+                        return 1;
+                    break;
+                }
 
+                if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_MEMORY)
+                {
+                    /* ] */
+                    if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
+                        assembler.tokens->token_type != TOKEN_PUNCTUATOR_CBRACKET)
                     {
-                        opcode_2op = (struct opcode_2op_t *)opcode;
-                        uint32_t operand_types[2] = {VM_OPCODE_OPERAND_NONE};
-
-                        for(uint32_t operand_index = 0; operand_index < 2; operand_index++)
-                        {
-                            if(assembler.tokens->token_class == TOKEN_CLASS_PUNCTUATOR &&
-                               assembler.tokens->token_type == TOKEN_PUNCTUATOR_OBRACKET)
-                            {
-                                /* [ */
-
-                                /* memory operand means the value will be used as a pointer */
-                                operand_types[operand_index] = VM_OPCODE_OPERAND_MEMORY;
-
-                                if(vm_next_token(&assembler))
-                                {
-                                    vm_set_last_error(UNEXPECTED_END_REACHED);
-                                    return 1;
-                                }
-                            }
-
-                            switch(assembler.tokens->token_class)
-                            {
-                                /* r0, r1, r2, r3 */
-                                case TOKEN_CLASS_IDENTIFIER:
-                                    
-                                    if(operand_types[operand_index] != VM_OPCODE_OPERAND_MEMORY)
-                                    {
-                                        operand_types[operand_index] = VM_OPCODE_OPERAND_REGISTER;
-                                    }
-
-                                    uint32_t register_index;
-                                    for(register_index = 0; register_index < GPR_COUNT; register_index++)
-                                    {
-                                        if(!strcmp(reg_names[register_index], (char *)assembler.tokens->constant))
-                                        {
-                                            opcode_2op->operands[operand_index] = (regs + register_index);
-                                            break;
-                                        }
-                                    }
-
-                                    if(register_index == GPR_COUNT)
-                                    {
-                                        vm_set_last_error("expecting a register name for the %s operand, got '%s'", operand_index ? "source" : "destination", vm_translate_token(assembler.tokens));
-                                        return 1;
-                                    }
-                                break;
-
-                                case TOKEN_CLASS_INTEGER_CONSTANT:
-                                    /* integer constant */
-                                    operand_types[operand_index] = VM_OPCODE_OPERAND_IMMEDIATE;
-                                    opcode_2op->operands[operand_index] = (void *)assembler.tokens->constant;
-                                    constant_offset += sizeof(uint64_t);
-                                break;
-
-                                default:
-                                    vm_set_last_error("expecting %s operand", operand_index ? "source" : "destination");
-                                    return 1;
-                                break;
-                            }
-
-                            if(vm_next_token(&assembler))
-                            {
-                                vm_set_last_error(UNEXPECTED_END_REACHED);
-                                return 1;
-                            }
-
-                            if(operand_types[operand_index] == VM_OPCODE_OPERAND_MEMORY)
-                            {
-                                /* ] */
-                                if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                                   assembler.tokens->token_type != TOKEN_PUNCTUATOR_CBRACKET)
-                                {
-                                    vm_set_last_error("expecting token ']' after register name, got '%s'", vm_translate_token(assembler.tokens));
-                                    return 1;
-                                }
-                                
-                                if(vm_next_token(&assembler) && !operand_index)
-                                {
-                                    vm_set_last_error(UNEXPECTED_END_REACHED);
-                                    return 1;
-                                }
-                            }
-
-                            if(!operand_index)
-                            {
-                                /* , (only if this is the first operand) */
-                                if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                                    assembler.tokens->token_type != TOKEN_PUNCTUATOR_COMMA)
-                                {
-                                    vm_set_last_error("expecting token ',' after destination operand, got '%s'", vm_translate_token(assembler.tokens));
-                                    return 1;
-                                }
-
-                                if(vm_next_token(&assembler))
-                                {
-                                    vm_set_last_error(UNEXPECTED_END_REACHED);
-                                    return 1;
-                                }
-                            }
-                        }
-
-                        opcode_2op->operand0_type = operand_types[0];
-                        opcode_2op->operand1_type = operand_types[1];
+                        vm_set_last_error("expecting token ']' after register name, got '%s'", vm_translate_token(assembler.tokens));
+                        return 1;
                     }
-                break;
-
-                case VM_OPCODE_JMP:
-                case VM_OPCODE_BE:
-                case VM_OPCODE_BNE:
-                case VM_OPCODE_BG:
-                case VM_OPCODE_BL:
-                case VM_OPCODE_BGE:
-                case VM_OPCODE_BLE:
-
-                    assembler.parsing_instruction = 1;
-                    opcode_1op = (struct opcode_1op_t *)opcode;
-
-                    if(assembler.tokens->token_class == TOKEN_CLASS_IDENTIFIER)
+                    
+                    if(vm_next_token(&assembler) && !operand_index)
                     {
-                        /* we store the name of the label for now, and set the type
-                        of this operand to none. Once all the code has been assembled, 
-                        and all the labels discovered, we patch the jmp instructions with 
-                        the correct address */
-                        opcode_1op->operand = (void *)assembler.tokens->constant;
-                        opcode_1op->operand0_type = VM_OPCODE_OPERAND_NONE;
-
-                        if(vm_next_token(&assembler))
-                        {
-                            vm_set_last_error(UNEXPECTED_END_REACHED);
-                            return 1;
-                        }
+                        vm_set_last_error(UNEXPECTED_END_REACHED);
+                        return 1;
                     }
-                break;
+                }
 
-                case VM_OPCODE_INC:
-                case VM_OPCODE_DEC:
-                    assembler.parsing_instruction = 1;
-                    opcode_1op = (struct opcode_1op_t *)opcode;
-
+                if(operand_index + 1 < opcode->operand_count)
+                {
+                    /* , (only if not last operand) */
+                    if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
+                        assembler.tokens->token_type != TOKEN_PUNCTUATOR_COMMA)
                     {
-                        if(assembler.tokens->token_class == TOKEN_CLASS_PUNCTUATOR &&
-                           assembler.tokens->token_type == TOKEN_PUNCTUATOR_OBRACE)
-                        {
-                            opcode_1op->operand0_type = VM_OPCODE_OPERAND_MEMORY;
-                            
-                            if(vm_next_token(&assembler))
-                            {
-                                vm_set_last_error(UNEXPECTED_END_REACHED);
-                                return 1;
-                            }
-                        }
-
-                        if(assembler.tokens->token_class != TOKEN_CLASS_IDENTIFIER)
-                        {
-                            vm_set_last_error("expecting register, got '%s'", vm_translate_token(assembler.tokens));
-                            return 1;
-                        }
-                        
-                        uint32_t register_index;
-
-                        for(register_index = 0; register_index < GPR_COUNT; register_index++)
-                        {
-                            if(!strcmp((char *)assembler.tokens->constant, reg_names[register_index]))
-                            {
-                                opcode_1op->operand = regs + register_index;
-                                break;
-                            }
-                        }
-
-                        if(register_index == GPR_COUNT)
-                        {
-                            vm_set_last_error("expecting register, got '%s'", vm_translate_token(assembler.tokens));
-                            return 1;
-                        }
-
-                        if(vm_next_token(&assembler))
-                        {
-                            vm_set_last_error(UNEXPECTED_END_REACHED);
-                            return 1;
-                        }
-
-                        if(opcode_1op->operand0_type == VM_OPCODE_OPERAND_MEMORY)
-                        {
-                            if(assembler.tokens->token_class == TOKEN_CLASS_PUNCTUATOR ||
-                               assembler.tokens->token_type == TOKEN_PUNCTUATOR_CBRACE)
-                            {
-                                vm_set_last_error("expected ']' after register, got '%s'", vm_translate_token(assembler.tokens));
-                                return 1;
-                            }
-
-                            if(vm_next_token(&assembler))
-                            {
-                                vm_set_last_error(UNEXPECTED_END_REACHED);
-                                return 1;
-                            }
-                        }
-                        else
-                        {
-                            opcode_1op->operand0_type = VM_OPCODE_OPERAND_REGISTER;
-                        }   
+                        vm_set_last_error("expecting token ',' after destination operand, got '%s'", vm_translate_token(assembler.tokens));
+                        return 1;
                     }
-                break;
+
+                    if(vm_next_token(&assembler))
+                    {
+                        vm_set_last_error(UNEXPECTED_END_REACHED);
+                        return 1;
+                    }
+                }
             }
 
+            opcode_3op->operand0_class = operand_classes[0];
+            opcode_3op->operand1_class = operand_classes[1];
+            opcode_3op->operand2_class = operand_classes[2];
+
             if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-               assembler.tokens->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
+                assembler.tokens->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
             {
                 vm_set_last_error("expecting ';' after instruction operands, got '%s'", vm_translate_token(assembler.tokens));
                 return 1;   
@@ -972,17 +1000,15 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
         {
             if(opcode->operand_count)
             {
-                opcode_2op = (struct opcode_2op_t *)opcode;
-                uint32_t operand_types[2];
-                uint32_t operand_size;
+                opcode_3op = (struct opcode_3op_t *)opcode;
 
-                operand_types[0] = opcode_2op->operand0_type;
-                operand_types[1] = opcode_2op->operand1_type;
-
+                operand_classes[0] = opcode_3op->operand0_class;
+                operand_classes[1] = opcode_3op->operand1_class;
+                operand_classes[2] = opcode_3op->operand2_class;
                 
                 for(uint32_t operand_index = 0; operand_index < opcode->operand_count; operand_index++)
                 {
-                    if(operand_types[operand_index] == VM_OPCODE_OPERAND_NONE)
+                    if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_NONE)
                     {
                         /* we shouldn't really get here normally, since instructions with operands of the type
                         VM_OPCODE_OPERAND_NONE actually have 0 operands. So, if we got here, it means we need
@@ -992,34 +1018,33 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
                         while(next_label)
                         {
-                            if(!strcmp(next_label->name, (char *)opcode_2op->operands[operand_index]))
+                            if(!strcmp(next_label->name, (char *)opcode_3op->operands[operand_index]))
                             {
                                 /* we found the label, so patch the operand value of this instruction... */
-                                opcode_2op->operands[operand_index] = code_buffer->code + code_buffer->code_start + next_label->offset;
+                                opcode_3op->operands[operand_index] = code_buffer->code + code_buffer->code_start + next_label->offset;
                                 break;
                             }
                             next_label = next_label->next;
                         }
 
                         /* we also adjust the operand type for the correct one */
-                        operand_types[operand_index] = VM_OPCODE_OPERAND_IMMEDIATE;
+                        operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_IMMEDIATE;
                     }
     
-                    if(operand_types[operand_index] == VM_OPCODE_OPERAND_IMMEDIATE)
+                    if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT)
                     {
-                        if(opcode->opcode == VM_OPCODE_PRINT)
-                        {
-                            /* the print struction */
-                            operand_size = strlen(opcode_2op->operands[operand_index]) + 1;
-                            memcpy(code_buffer->code + constant_offset, opcode_2op->operands[operand_index], operand_size);
-                            opcode_2op->operands[operand_index] = code_buffer->code + constant_offset;
-                            constant_offset += operand_size;
-                        }
+                        /* this instruction takes a string constant as operand, so copy the string
+                        to the constant area */
+                        operand_size = strlen(opcode_3op->operands[operand_index]) + 1;
+                        memcpy(code_buffer->code + constant_offset, opcode_3op->operands[operand_index], operand_size);
+                        opcode_3op->operands[operand_index] = code_buffer->code + constant_offset;
+                        constant_offset += operand_size;
                     }
                 }
 
-                opcode_2op->operand0_type = operand_types[0];
-                opcode_2op->operand1_type = operand_types[1];
+                opcode_3op->operand0_class = operand_classes[0];
+                opcode_3op->operand1_class = operand_classes[1];
+                opcode_3op->operand2_class = operand_classes[2];
             }
 
             opcode = vm_next_opcode();
@@ -1031,223 +1056,226 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
 void vm_dissasemble_code(struct code_buffer_t *code_buffer)
 {
-    uint32_t code_offset;
-    struct opcode_t *opcode;
-    struct opcode_1op_t *opcode_1op;
+    /* TODO: implement this shit correctly */
 
-    vm_set_code_buffer(code_buffer);
-    opcode = vm_next_opcode();
+    // uint32_t code_offset;
+    // struct opcode_t *opcode;
+    // struct opcode_1op_t *opcode_1op;
+    // struct opcode_3op_t *opcode_3op;
 
-    while(opcode)
-    {
-        // printf("%d\n", opcode->opcode);
-        switch(opcode->opcode)
-        {
-            case VM_OPCODE_PRINT:
-                opcode_1op = (struct opcode_1op_t *)opcode;
-                printf("print %s\n", opcode_1op->operand);
-            break;
+    // vm_set_code_buffer(code_buffer);
+    // opcode = vm_next_opcode();
 
-            case VM_OPCODE_MOV:
-                {
-                    struct opcode_2op_t *opcode_2op;
-                    uint32_t operand_types[2];
+    // while(opcode)
+    // {
+    //     // printf("%d\n", opcode->opcode);
+    //     switch(opcode->opcode)
+    //     {
+    //         case VM_OPCODE_PRINT:
+    //             opcode_1op = (struct opcode_1op_t *)opcode;
+    //             printf("print %s\n", opcode_1op->operand);
+    //         break;
 
-                    opcode_2op = (struct opcode_2op_t *)opcode;
-                    operand_types[0] = opcode_2op->operand0_type;
-                    operand_types[1] = opcode_2op->operand1_type;
+    //         case VM_OPCODE_MOV:
+    //             {
+    //                 struct opcode_2op_t *opcode_2op;
+    //                 uint32_t operand_types[2];
 
-                    printf("mov ");
+    //                 opcode_2op = (struct opcode_2op_t *)opcode;
+    //                 operand_types[0] = opcode_2op->operand0_type;
+    //                 operand_types[1] = opcode_2op->operand1_type;
 
-                    for(uint32_t operand_index = 0; operand_index < 2; operand_index++)
-                    {
-                        switch(operand_types[operand_index])
-                        {
-                            case VM_OPCODE_OPERAND_MEMORY:
-                                switch((uint64_t *)opcode_2op->operands[operand_index] - regs)
-                                {
-                                    case 0:
-                                        printf("[r0]");
-                                    break;
+    //                 printf("mov ");
 
-                                    case 1:
-                                        printf("[r1]");
-                                    break;
+    //                 for(uint32_t operand_index = 0; operand_index < 2; operand_index++)
+    //                 {
+    //                     switch(operand_types[operand_index])
+    //                     {
+    //                         case VM_OPCODE_OPERAND_MEMORY:
+    //                             switch((uint64_t *)opcode_2op->operands[operand_index] - regs)
+    //                             {
+    //                                 case 0:
+    //                                     printf("[r0]");
+    //                                 break;
 
-                                    case 2:
-                                        printf("[r2]");
-                                    break;
+    //                                 case 1:
+    //                                     printf("[r1]");
+    //                                 break;
 
-                                    case 3:
-                                        printf("[r3]");
-                                    break;
-                                }
-                            break;
+    //                                 case 2:
+    //                                     printf("[r2]");
+    //                                 break;
 
-                            case VM_OPCODE_OPERAND_REGISTER:
-                                switch((uint64_t *)opcode_2op->operands[operand_index] - regs)
-                                {
-                                    case 0:
-                                        printf("r0");
-                                    break;
+    //                                 case 3:
+    //                                     printf("[r3]");
+    //                                 break;
+    //                             }
+    //                         break;
 
-                                    case 1:
-                                        printf("r1");
-                                    break;
+    //                         case VM_OPCODE_OPERAND_REGISTER:
+    //                             switch((uint64_t *)opcode_2op->operands[operand_index] - regs)
+    //                             {
+    //                                 case 0:
+    //                                     printf("r0");
+    //                                 break;
 
-                                    case 2:
-                                        printf("r2");
-                                    break;
+    //                                 case 1:
+    //                                     printf("r1");
+    //                                 break;
 
-                                    case 3:
-                                        printf("r3");
-                                    break;
-                                }
-                            break;
+    //                                 case 2:
+    //                                     printf("r2");
+    //                                 break;
 
-                            case VM_OPCODE_OPERAND_IMMEDIATE:
-                                printf("%d ", opcode_2op->operands[operand_index]);
-                            break;
-                        }
+    //                                 case 3:
+    //                                     printf("r3");
+    //                                 break;
+    //                             }
+    //                         break;
 
-                        if(!operand_index)
-                        {
-                            printf(", ");
-                        }
-                    }
+    //                         case VM_OPCODE_OPERAND_IMMEDIATE:
+    //                             printf("%d ", opcode_2op->operands[operand_index]);
+    //                         break;
+    //                     }
 
-                    printf("\n");
-                }
-            break;
+    //                     if(!operand_index) 
+    //                     {
+    //                         printf(", ");
+    //                     }
+    //                 }
 
-            case VM_OPCODE_JMP:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("\n");
+    //             }
+    //         break;
 
-                    printf("jmp %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_JMP:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_BE:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("jmp %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    printf("be %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_BE:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_BNE:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("be %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    printf("bne %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_BNE:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_BG:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("bne %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    printf("bg %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_BG:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_BL:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("bg %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    printf("bl %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_BL:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_BGE:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("bl %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    printf("bge %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_BGE:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_BLE:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("bge %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    printf("ble %x\n", opcode_1op->operand);
-                }
-            break;
+    //         case VM_OPCODE_BLE:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-            case VM_OPCODE_INC:
-            case VM_OPCODE_DEC:
-                {
-                    struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
+    //                 printf("ble %x\n", opcode_1op->operand);
+    //             }
+    //         break;
 
-                    if(opcode->opcode == VM_OPCODE_INC)
-                    {
-                        printf("inc ");
-                    }
-                    else
-                    {
-                        printf("dec ");
-                    }
+    //         case VM_OPCODE_INC:
+    //         case VM_OPCODE_DEC:
+    //             {
+    //                 struct opcode_1op_t *opcode_1op = (struct opcode_1op_t *)opcode;
 
-                    switch(opcode_1op->operand0_type)
-                    {
-                        case VM_OPCODE_OPERAND_MEMORY:
-                            switch((uint64_t *)opcode_1op->operand - regs)
-                            {
-                                case 0:
-                                    printf("[r0]");
-                                break;
+    //                 if(opcode->opcode == VM_OPCODE_INC)
+    //                 {
+    //                     printf("inc ");
+    //                 }
+    //                 else
+    //                 {
+    //                     printf("dec ");
+    //                 }
 
-                                case 1:
-                                    printf("[r1]");
-                                break;
+    //                 switch(opcode_1op->operand0_type)
+    //                 {
+    //                     case VM_OPCODE_OPERAND_MEMORY:
+    //                         switch((uint64_t *)opcode_1op->operand - regs)
+    //                         {
+    //                             case 0:
+    //                                 printf("[r0]");
+    //                             break;
 
-                                case 2:
-                                    printf("[r2]");
-                                break;
+    //                             case 1:
+    //                                 printf("[r1]");
+    //                             break;
+
+    //                             case 2:
+    //                                 printf("[r2]");
+    //                             break;
                                 
-                                case 3:
-                                    printf("[r3]");
-                                break;
-                            }  
-                        break;
+    //                             case 3:
+    //                                 printf("[r3]");
+    //                             break;
+    //                         }  
+    //                     break;
 
-                        case VM_OPCODE_OPERAND_REGISTER:
-                            switch((uint64_t *)opcode_1op->operand - regs)
-                            {
-                                case 0:
-                                    printf("r0");
-                                break;
+    //                     case VM_OPCODE_OPERAND_REGISTER:
+    //                         switch((uint64_t *)opcode_1op->operand - regs)
+    //                         {
+    //                             case 0:
+    //                                 printf("r0");
+    //                             break;
 
-                                case 1:
-                                    printf("r1");
-                                break;
+    //                             case 1:
+    //                                 printf("r1");
+    //                             break;
 
-                                case 2:
-                                    printf("r2");
-                                break;
+    //                             case 2:
+    //                                 printf("r2");
+    //                             break;
                                 
-                                case 3:
-                                    printf("r3");
-                                break;
-                            } 
-                        break;
-                    }
+    //                             case 3:
+    //                                 printf("r3");
+    //                             break;
+    //                         } 
+    //                     break;
+    //                 }
 
-                    printf("\n");
-                }
-            break;
-        }
+    //                 printf("\n");
+    //             }
+    //         break;
+    //     }
 
-        opcode = vm_next_opcode();
-    }
+    //     opcode = vm_next_opcode();
+    // }
 }
 
 void vm_set_code_buffer(struct code_buffer_t *code_buffer)
 {
-    reg_i0 = NULL;
-    reg_i1 = NULL;
+    // reg_i0 = NULL;
+    // reg_i1 = NULL;
     reg_scn = NULL;
 
     reg_status = 0;
@@ -1315,10 +1343,11 @@ uint64_t vm_alu_op(uint32_t op, uint64_t operand0, uint64_t operand1)
 void vm_execute_code(struct code_buffer_t *code_buffer)
 {
     struct opcode_t *opcode;
-    struct opcode_1op_t *opcode_1op;
-    struct opcode_2op_t *opcode_2op;
-    void *addresses[2];
-    uint32_t operand_types[2];
+    struct opcode_3op_t *opcode_3op;
+    // struct opcode_1op_t *opcode_1op;
+    // struct opcode_2op_t *opcode_2op;
+    void *addresses[3];
+    uint32_t operand_classes[3];
     
     vm_set_code_buffer(code_buffer);
     opcode = vm_next_opcode();
@@ -1334,27 +1363,28 @@ void vm_execute_code(struct code_buffer_t *code_buffer)
     {
         if(opcode->operand_count)
         {
-            opcode_2op = (struct opcode_2op_t *)opcode;
-            operand_types[0] = opcode_2op->operand0_type;
-            operand_types[1] = opcode_2op->operand1_type;
+            opcode_3op = (struct opcode_3op_t *)opcode;
+            operand_classes[0] = opcode_3op->operand0_class;
+            operand_classes[1] = opcode_3op->operand1_class;
+            operand_classes[2] = opcode_3op->operand2_class;
 
-            for(uint32_t operand_index = 0; operand_index < 2; operand_index++)
+            for(uint32_t operand_index = 0; operand_index < 3; operand_index++)
             {
-                if(operand_types[operand_index] == VM_OPCODE_OPERAND_MEMORY)
+                if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_MEMORY)
                 {
                     /* here we have a pointer to the address of the operand, so we dereference
                     it once to the get address of the operand */
-                    addresses[operand_index] = *(void **)opcode_2op->operands[operand_index];
+                    addresses[operand_index] = *(void **)opcode_3op->operands[operand_index];
                 }
-                else if(operand_types[operand_index] == VM_OPCODE_OPERAND_REGISTER)
+                else if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_REGISTER)
                 {
                     /* the address of the register is in memory, so just copy it */
-                    addresses[operand_index] = opcode_2op->operands[operand_index];
+                    addresses[operand_index] = opcode_3op->operands[operand_index];
                 }
                 else
                 {
                     /* here we have an immediate value in memory, so we take its address */
-                    addresses[operand_index] = &opcode_2op->operands[operand_index];
+                    addresses[operand_index] = &opcode_3op->operands[operand_index];
                 }
             }
         }
@@ -1451,12 +1481,14 @@ void vm_print_registers()
 {
     printf("reg_pc: 0x%x\n", reg_pc);
     printf("reg_scn: 0x%x\n", reg_scn);
-    printf("reg_i0: 0x%x\n", reg_i0);
-    printf("reg_i1: 0x%x\n", reg_i1);
     printf("Z: %d | N: %d\n", (reg_status & VM_STATUS_FLAG_ZERO) && 1, (reg_status & VM_STATUS_FLAG_NEGATIVE) && 1);
-    for(uint32_t i = 0; i < GPR_COUNT; i++)
+    for(uint32_t i = 0; i < I_REGS_COUNT; i++)
     {
-        printf("r%d: %d\n", i, regs[i]);
+        printf("%s: 0x%x\n", i_reg_names[i], i_regs[i]);
+    }
+    for(uint32_t i = 0; i < GP_REGS_COUNT; i++)
+    {
+        printf("%s: %d\n", gp_reg_names[i], gp_regs[i]);
     }
 }
 

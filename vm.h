@@ -130,12 +130,13 @@ enum VM_OPCODES
     VM_OPCODE_LAST,
 };
 
-enum VM_OPCODE_OPERANDS
+enum VM_OPCODE_OPERAND_CLASS
 {
-    VM_OPCODE_OPERAND_NONE = 0,
-    VM_OPCODE_OPERAND_REGISTER,
-    VM_OPCODE_OPERAND_MEMORY,
-    VM_OPCODE_OPERAND_IMMEDIATE,
+    VM_OPCODE_OPERAND_CLASS_NONE = 0,
+    VM_OPCODE_OPERAND_CLASS_REGISTER,
+    VM_OPCODE_OPERAND_CLASS_MEMORY,
+    VM_OPCODE_OPERAND_CLASS_IMMEDIATE,
+    VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT,
 };
 
 enum VM_STATUS_FLAG
@@ -202,12 +203,13 @@ struct token_t
     uint32_t token_type;
 };
 
-#define OPCODE_FIELDS       \
-unsigned opcode : 6;        \
-unsigned operand_count : 2; \
-unsigned width : 2;         \
-unsigned operand0_type : 2; \
-unsigned operand1_type : 2 
+#define OPCODE_FIELDS           \
+unsigned opcode : 6;            \
+unsigned operand_count : 2;     \
+unsigned width : 2;             \
+unsigned operand0_class : 3;    \
+unsigned operand1_class : 3;    \
+unsigned operand2_class : 3; 
 
 struct opcode_t
 {
