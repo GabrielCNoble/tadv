@@ -220,10 +220,17 @@ enum TOKEN_PUNCTUATOR
     TOKEN_PUNCTUATOR_EQUAL
 };
 
+union token_constant_t
+{
+    uint64_t uint_constant;
+    void *ptr_constant;
+    float flt_constant;
+};
 struct token_t
 {
     struct token_t *next;
-    uint64_t constant;
+    union token_constant_t constant;
+    // uint64_t constant;
     uint32_t token_class;
     uint32_t token_type;
 };
@@ -241,21 +248,27 @@ struct opcode_t
     OPCODE_FIELDS;
 };
 
+union operand_t
+{
+    uint64_t uint_operand;
+    void *ptr_operand;
+};
+
 struct opcode_1op_t
 {
     OPCODE_FIELDS;
-    void *operand;
+    union operand_t operand;
 };
 struct opcode_2op_t
 {
     OPCODE_FIELDS;
-    void *operands[2];
+    union operand_t operands[2];
 };
 
 struct opcode_3op_t
 {
     OPCODE_FIELDS;
-    void *operands[3];
+    union operand_t operands[3];
 };
 
 struct code_buffer_t

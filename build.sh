@@ -4,4 +4,4 @@ gcc -c scene.c -Wall -o objects/scene.o
 gcc -c interactable.c -Wall -o objects/interactable.o
 gcc -c player.c -Wall -o objects/player.o
 gcc -c dat.c -Wall -o objects/dat.o
-gcc objects/*.o -lSDL2 -o build/main
+gcc objects/*.o -o build/main

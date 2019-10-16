@@ -9,7 +9,7 @@ struct dat_attrib_t *dat_get_attrib_recursive(struct dat_attrib_t *attribs, stru
     {
         while(attribs)
         {
-            if(!strcmp((char *)token->constant, attribs->name))
+            if(!strcmp((char *)token->constant.ptr_constant, attribs->name))
             {
                 token = token->next;
 
@@ -146,7 +146,7 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
         }
 
         attrib = calloc(1, sizeof(struct dat_attrib_t));
-        attrib->name = strdup((char *)token->constant);
+        attrib->name = strdup((char *)token->constant.ptr_constant);
         attrib->next = attribs;
         attribs = attrib;
 
@@ -165,25 +165,25 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
         {
             case TOKEN_CLASS_INTEGER_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_INT;
-                attrib->data.scalar_data = token->constant;
+                attrib->data.scalar_data = token->constant.uint_constant;
                 token = token->next;
             break;
 
             case TOKEN_CLASS_FLOAT_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_FLOAT;
-                attrib->data.scalar_data = token->constant;
+                attrib->data.scalar_data = token->constant.flt_constant;
                 token = token->next;
             break;
 
             case TOKEN_CLASS_STRING_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_STRING;
-                attrib->data.str_data = (char *)token->constant;
+                attrib->data.str_data = (char *)token->constant.ptr_constant;
                 token = token->next;
             break;
 
             case TOKEN_CLASS_CODE:
                 attrib->type = DAT_ATTRIB_TYPE_CODE;
-                attrib->data.str_data = (char *)token->constant;
+                attrib->data.str_data = (char *)token->constant.ptr_constant;
                 token = token->next;
             break;
 

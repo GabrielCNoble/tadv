@@ -107,7 +107,7 @@ struct opcode_info_t opcode_info[VM_OPCODE_LAST] = {};
 char char_map[512] = {CHAR_TYPE_BLANK};
 
 struct scene_t *reg_scn = NULL;
-uint64_t reg_pc;
+void *reg_pc;
 uint8_t reg_status;
 char *gp_reg_names[] = {"r0", "r1", "r2", "r3"};
 char *i_reg_names[] = {"ri0", "ri1"};
@@ -534,10 +534,15 @@ struct token_t *vm_lex_code(const char *src)
 
             if(token_class == TOKEN_CLASS_STRING_CONSTANT || token_class == TOKEN_CLASS_IDENTIFIER || token_class == TOKEN_CLASS_CODE)
             {
-                constant = (uint64_t)strdup(token_str);
+                // constant = (uint64_t)strdup(token_str);
+                next_token->constant.ptr_constant = strdup(token_str);
+            }
+            else
+            {
+                next_token->constant.uint_constant = constant;
             }
             
-            next_token->constant = constant;
+            // next_token->constant = constant;
 
             if(!tokens)
             {
@@ -608,29 +613,29 @@ char *vm_translate_token(struct token_t *token)
     switch(token->token_class)
     {
         case TOKEN_CLASS_STRING_CONSTANT:
-            return (char *)token->constant;
+            return (char *)token->constant.ptr_constant;
         break;
 
         case TOKEN_CLASS_CODE:
-            return (char *)token->constant;
+            return (char *)token->constant.ptr_constant;
         break;
 
         case TOKEN_CLASS_INTEGER_CONSTANT:
-            sprintf(fmt, "%d", (int32_t )token->constant);
+            sprintf(fmt, "%I64d", token->constant.uint_constant);
             return fmt;
         break;
 
         case TOKEN_CLASS_FLOAT_CONSTANT:
-            sprintf(fmt, "%f", *(float *)&token->constant);
+            sprintf(fmt, "%f", token->constant.flt_constant);
             return fmt;
         break;
 
         case TOKEN_CLASS_IDENTIFIER:
-            return (char *)token->constant;
+            return (char *)token->constant.ptr_constant;
         break;
 
         case TOKEN_CLASS_INSTRUCTION:
-            return opcode_info[token->constant].name;
+            return opcode_info[token->constant.uint_constant].name;
         break;
 
         case TOKEN_CLASS_PUNCTUATOR:
@@ -743,6 +748,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
     struct code_label_t *labels = NULL;
     struct code_label_t *next_label = NULL;
 
+    /* TODO: this is outBOUNDS to go wrong... get it? */
     code = calloc(1, 2048);
 
     assembler = vm_init_assembler(vm_lex_code(src));
@@ -752,9 +758,9 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
         if(assembler.tokens->token_class == TOKEN_CLASS_INSTRUCTION)
         {
             opcode = (struct opcode_t *)(code + code_offset);
-            code_offset += opcode_info[assembler.tokens->constant].offset;
+            code_offset += opcode_info[assembler.tokens->constant.uint_constant].offset;
 
-            opcode->opcode = assembler.tokens->constant;
+            opcode->opcode = assembler.tokens->constant.uint_constant;
             opcode->operand_count = opcode_info[opcode->opcode].operand_count;
 
             // printf("%s\n", vm_translate_token(assembler.tokens));
@@ -813,8 +819,8 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                         }
 
                         operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT;
-                        opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
-                        constant_offset += strlen((char *)assembler.tokens->constant) + 1;
+                        opcode_3op->operands[operand_index].ptr_operand = assembler.tokens->constant.ptr_constant;
+                        constant_offset += strlen((char *)assembler.tokens->constant.ptr_constant) + 1;
 
                         if(vm_next_token(&assembler))
                         {
@@ -833,9 +839,9 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
                         for(register_index = 0; register_index < GP_REGS_COUNT; register_index++)
                         {
-                            if(!strcmp(gp_reg_names[register_index], (char *)assembler.tokens->constant))
+                            if(!strcmp(gp_reg_names[register_index], (char *)assembler.tokens->constant.ptr_constant))
                             {
-                                opcode_3op->operands[operand_index] = (gp_regs + register_index);
+                                opcode_3op->operands[operand_index].ptr_operand = (gp_regs + register_index);
                                 break;
                             }
                         }
@@ -846,9 +852,9 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
                             for(register_index = 0; register_index < I_REGS_COUNT; register_index++)
                             {
-                                if(!strcmp(i_reg_names[register_index], (char *)assembler.tokens->constant))
+                                if(!strcmp(i_reg_names[register_index], (char *)assembler.tokens->constant.ptr_constant))
                                 {
-                                    opcode_3op->operands[operand_index] = (i_regs + register_index);
+                                    opcode_3op->operands[operand_index].ptr_operand = (i_regs + register_index);
                                     break;
                                 }
                             }
@@ -862,7 +868,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                                     of this operand to none. Once all the code has been assembled, 
                                     and all the labels discovered, we patch the jmp instructions with 
                                     the correct address */
-                                    opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
+                                    opcode_3op->operands[operand_index].ptr_operand = assembler.tokens->constant.ptr_constant;
                                     operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_NONE;
                                 }
                                 else
@@ -909,7 +915,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                         }
 
                         operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_IMMEDIATE;
-                        opcode_3op->operands[operand_index] = (void *)assembler.tokens->constant;
+                        opcode_3op->operands[operand_index].uint_operand = assembler.tokens->constant.uint_constant;
                         constant_offset += sizeof(uint64_t);
 
                         if(vm_next_token(&assembler))
@@ -979,7 +985,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
             assembler.parsing_instruction = 1;
             /* probably a label */
 
-            char *label = (char *)assembler.tokens->constant;
+            char *label = (char *)assembler.tokens->constant.ptr_constant;
 
             if(vm_next_token(&assembler))
             {
@@ -1049,10 +1055,10 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
                         while(next_label)
                         {
-                            if(!strcmp(next_label->name, (char *)opcode_3op->operands[operand_index]))
+                            if(!strcmp(next_label->name, (char *)opcode_3op->operands[operand_index].ptr_operand))
                             {
                                 /* we found the label, so patch the operand value of this instruction... */
-                                opcode_3op->operands[operand_index] = code_buffer->code + code_buffer->code_start + next_label->offset;
+                                opcode_3op->operands[operand_index].ptr_operand = code_buffer->code + code_buffer->code_start + next_label->offset;
                                 break;
                             }
                             next_label = next_label->next;
@@ -1066,9 +1072,9 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                     {
                         /* this instruction takes a string constant as operand, so copy the string
                         to the constant area */
-                        operand_size = strlen(opcode_3op->operands[operand_index]) + 1;
-                        memcpy(code_buffer->code + constant_offset, opcode_3op->operands[operand_index], operand_size);
-                        opcode_3op->operands[operand_index] = code_buffer->code + constant_offset;
+                        operand_size = strlen((char *)opcode_3op->operands[operand_index].ptr_operand) + 1;
+                        memcpy(code_buffer->code + constant_offset, (char *)opcode_3op->operands[operand_index].ptr_operand, operand_size);
+                        opcode_3op->operands[operand_index].ptr_operand = code_buffer->code + constant_offset;
                         constant_offset += operand_size;
                     }
                 }
@@ -1312,17 +1318,17 @@ void vm_set_code_buffer(struct code_buffer_t *code_buffer)
     reg_status = 0;
 
     current_code_buffer = *code_buffer;
-    reg_pc = (uint64_t)(current_code_buffer.code + current_code_buffer.code_start);
+    reg_pc = current_code_buffer.code + current_code_buffer.code_start;
 }
 
 struct opcode_t *vm_next_opcode()
 {
     struct opcode_t *opcode = NULL;
 
-    if(reg_pc < (uint64_t)(current_code_buffer.code + current_code_buffer.length))
+    if((char *)reg_pc < current_code_buffer.code + current_code_buffer.length)
     {
         opcode = (struct opcode_t *)reg_pc;
-        reg_pc += opcode_info[opcode->opcode].offset;
+        reg_pc =  (char *)reg_pc + opcode_info[opcode->opcode].offset;
     }
 
     return opcode;
@@ -1396,6 +1402,8 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
     char *str0;
     char *str1;
 
+    union operand_t punny = {};
+
     uint32_t perform_jump;
     
     while(opcode)
@@ -1413,12 +1421,12 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
                 {
                     /* here we have a pointer to the address of the operand, so we dereference
                     it once to the get address of the operand */
-                    addresses[operand_index] = *(void **)opcode_3op->operands[operand_index];
+                    addresses[operand_index] = *(void **)opcode_3op->operands[operand_index].ptr_operand;
                 }
                 else if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_REGISTER)
                 {
                     /* the address of the register is in memory, so just copy it */
-                    addresses[operand_index] = opcode_3op->operands[operand_index];
+                    addresses[operand_index] = opcode_3op->operands[operand_index].ptr_operand;
                 }
                 else
                 {
@@ -1477,7 +1485,7 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
                 _test_jump:
                 if(perform_jump)
                 {
-                    memcpy(&reg_pc, addresses[0], sizeof(uint64_t));
+                    memcpy(&reg_pc, addresses[0], sizeof(void *));
                 }
             break;
 
@@ -1549,7 +1557,8 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
             case VM_OPCODE_IN:
                 fgets(input_str, 512, stdin);
                 input_str[strlen(input_str) - 1] = '\0';
-                value0 = vm_alu_op(VM_ALU_OP_PASS, (uint64_t) input_str, 0);
+                punny.ptr_operand = input_str;
+                value0 = vm_alu_op(VM_ALU_OP_PASS, punny.uint_operand, 0);
                 memcpy(addresses[0], &value0, sizeof(uint64_t));
             break;
 
@@ -1559,7 +1568,7 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
 
             case VM_OPCODE_FCRSH:
                 {
-                    free(alloca(512));
+                    // free(alloca(512));
                     char *die = NULL;
                     *die = 5;
                 }
