@@ -9,7 +9,7 @@ void load_scenes()
 {
     FILE *file;
     char *file_buffer;
-    char *identifier;
+    // char *identifier;
     long file_len;
 
     struct scene_t *scene;
@@ -26,7 +26,7 @@ void load_scenes()
     struct dat_attrib_t *attribs;
     struct dat_attrib_t *attrib;
     struct dat_attrib_t *scene_attrib;
-    struct dat_attrib_t *intro;
+    // struct dat_attrib_t *intro;
 
 
     // struct token_t *tokens = vm_lex_code(file_buffer);
@@ -35,6 +35,7 @@ void load_scenes()
 
 
     attribs = dat_parse_dat_string(file_buffer);
+    
     attrib = attribs;
 
     while(attrib)
@@ -56,17 +57,21 @@ void load_scenes()
     {
         scene_attrib = dat_get_attrib(scene->attribs, "logic");
 
-        if(scene_attrib)
+        if(scene_attrib->type == DAT_ATTRIB_TYPE_CODE)
         {
-            if(vm_assemble_code(&scene->code, scene_attrib->data.str_data))
-            {
-                printf("%s\n", vm_get_last_error());
-            }
-            else
-            {
-                vm_execute_code(&scene->code);
+            // if(vm_assemble_code(&scene->code, scene_attrib->data.str_data))
+            // {
+            //     printf("%s\n", vm_get_last_error());
+            // }
+            // else
+            // {
+                printf("return value: %I64d\n", vm_execute_code(&scene_attrib->data.code));
                 vm_print_registers();
-            }
+            // }
+        }
+        else
+        {
+            printf("welp, no code to run...\n");
         }
         scene = scene->next;
     }

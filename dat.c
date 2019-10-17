@@ -9,7 +9,7 @@ struct dat_attrib_t *dat_get_attrib_recursive(struct dat_attrib_t *attribs, stru
     {
         while(attribs)
         {
-            if(!strcmp((char *)token->constant, attribs->name))
+            if(!strcmp((char *)token->constant.ptr_constant, attribs->name))
             {
                 token = token->next;
 
@@ -116,10 +116,15 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
     struct dat_attrib_t *attrib = NULL;
     struct dat_attrib_t *attribs = NULL;
     struct token_t *token;
-    char *attrib_name;
+    struct token_t *before_code;
+    struct token_t *prev_token;
+    struct token_t *code;
+    // char *attrib_name;
     uint32_t has_opening_brace = 0;
     
     token = *tokens;
+
+    /* TODO: this parser is too fragile... */
 
     if(token->token_class != TOKEN_CLASS_IDENTIFIER)
     {
@@ -146,7 +151,7 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
         }
 
         attrib = calloc(1, sizeof(struct dat_attrib_t));
-        attrib->name = strdup((char *)token->constant);
+        attrib->name = strdup((char *)token->constant.ptr_constant);
         attrib->next = attribs;
         attribs = attrib;
 
@@ -165,27 +170,27 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
         {
             case TOKEN_CLASS_INTEGER_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_INT;
-                attrib->data.scalar_data = token->constant;
+                attrib->data.scalar_data = token->constant.uint_constant;
                 token = token->next;
             break;
 
             case TOKEN_CLASS_FLOAT_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_FLOAT;
-                attrib->data.scalar_data = token->constant;
+                attrib->data.scalar_data = token->constant.flt_constant;
                 token = token->next;
             break;
 
             case TOKEN_CLASS_STRING_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_STRING;
-                attrib->data.str_data = (char *)token->constant;
+                attrib->data.str_data = (char *)token->constant.ptr_constant;
                 token = token->next;
             break;
 
-            case TOKEN_CLASS_CODE:
-                attrib->type = DAT_ATTRIB_TYPE_CODE;
-                attrib->data.str_data = (char *)token->constant;
-                token = token->next;
-            break;
+            // case TOKEN_CLASS_CODE:
+            //     attrib->type = DAT_ATTRIB_TYPE_CODE;
+            //     attrib->data.str_data = (char *)token->constant.ptr_constant;
+            //     token = token->next;
+            // break;
 
             case TOKEN_CLASS_PUNCTUATOR:
                 if(token->token_type == TOKEN_PUNCTUATOR_OBRACE)
@@ -196,6 +201,30 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
                     {
                         goto _free_attribs;
                     }
+                }
+                else if(token->token_type == TOKEN_PUNCTUATOR_OPARENTHESIS)
+                {
+                    attrib->type = DAT_ATTRIB_TYPE_CODE;
+                    before_code = token;
+                    token = token->next;
+                    code = token;
+
+                    while(token->token_class != TOKEN_CLASS_PUNCTUATOR ||
+                          token->token_type != TOKEN_PUNCTUATOR_CPARENTHESIS)
+                    {
+                        prev_token = token;
+                        token = token->next;
+                    }
+
+                    prev_token->next = NULL;
+                    before_code->next = token;
+
+                    if(vm_assemble_code(&attrib->data.code, code))
+                    {
+                        printf("problem assembling code. Well, shit...\n");
+                    }
+
+                    token = token->next;
                 }
                 else
                 {

@@ -1,10 +1,69 @@
 {
     scene = "test";
+    wow = (
+
+        mov r0, 15;
+        again:
+        print "hello\n";
+        dec r0;
+        cmp r0, 0;
+        bne again;
+        print "done\n\n";
+    );
 
     logic = (
-        print "big shit\n";
-        print "big pile of shit\n";
-        print "big ol steaming pile of shit\n\n";
-        ldsc "test";
+        print "You shall not proceed onwards, son. Your jorney has ended, and you have not achieved your goals. How do you feel about it?\n";
+        print "(1\)FUCK!\n";
+        print "(2\)SHIT!\n";
+        print "(3\)ASS!\n";
+
+        try_again:
+        in r0;
+        cmps r0, "FUCK!";
+        be exit;
+
+        lcstr r0;
+        cmps r0, "fuck!";
+        be louder;
+        cmpslc r0, "fuck";
+        be louder;
+
+        cmpslc r0, "shit!";
+        be nope_not_that;
+        cmpslc r0, "shit";
+        be nope_not_that;
+        cmpslc r0, "ass!";
+        be nope_not_that;
+        cmpslc r0, "ass";
+        be nope_not_that;
+        jmp test_numbers;
+
+
+        louder:
+        print "LOUDER!\n";
+        jmp try_again;
+
+        nope_not_that:
+        print "Nope! That's not the rigth answer!\n";
+        jmp try_again;
+
+
+        test_numbers:
+        cmps r0, "1";
+        be wtf_number;
+        cmps r0, "2";
+        be wtf_number;
+        cmps r0, "3";
+        be wtf_number;
+        jmp nope_not_that;
+
+
+        wtf_number:
+        print "What the hell is this?! A number?! Do I look like a fucking calculator to you?! Gimme the right answer!\n";
+        jmp try_again;
+
+        exit:
+        print "that's right!\n\n\n";
+        ret 0;
     );
 }

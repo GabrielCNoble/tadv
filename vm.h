@@ -51,14 +51,19 @@ enum VM_OPCODES
     /* 
         ldi: loads an interactable into an interactable register.
 
-        'ldi interactable', where 'interactable' is a string that represents
-        the name of an interactable. The reference will  
+        'ldi ri(0-1), interactable', where 'interactable' is a string that represents
+        the name of an interactable, and ri(0-1) is a interactible register  
     */
     VM_OPCODE_LDI,
 
     /*
         ldia: gets the address of an interactable attribute. Attribute
         name works the same as in ldsca
+
+        'ldia r(0-3), ri(0-1), attribute', where 'attribute' is a string that represents
+        the interactible attribute, ri(0-1) is an interactible register that holds a pointer
+        to a interactible, and r(0-3) is a general purpouse register, which will receive the
+        pointer to the attribute
     */
     VM_OPCODE_LDIA,              
 
@@ -85,6 +90,26 @@ enum VM_OPCODES
 
     
     VM_OPCODE_CMP,
+
+    /*
+        cmps: compares two strings
+    */
+    VM_OPCODE_CMPS,
+
+    /*
+        cmpslc: transform the strings to lowercase, then compare them 
+    */
+    VM_OPCODE_CMPSLC,
+
+    /*
+        lcstr: converts a string to lowercase
+    */
+    VM_OPCODE_LCSTR,
+
+    /*
+        cmpsstr: compares a substring to a string
+    */
+    VM_OPCODE_CMPSSTR,
 
     /*
         jmp: performs an unconditional jump.
@@ -125,17 +150,23 @@ enum VM_OPCODES
     VM_OPCODE_BLE,
 
 
+    VM_OPCODE_IN,
+
+    VM_OPCODE_RET,
+
+
     VM_OPCODE_FCRSH,
     
     VM_OPCODE_LAST,
 };
 
-enum VM_OPCODE_OPERANDS
+enum VM_OPCODE_OPERAND_CLASS
 {
-    VM_OPCODE_OPERAND_NONE = 0,
-    VM_OPCODE_OPERAND_REGISTER,
-    VM_OPCODE_OPERAND_MEMORY,
-    VM_OPCODE_OPERAND_IMMEDIATE,
+    VM_OPCODE_OPERAND_CLASS_NONE = 0,
+    VM_OPCODE_OPERAND_CLASS_REGISTER,
+    VM_OPCODE_OPERAND_CLASS_MEMORY,
+    VM_OPCODE_OPERAND_CLASS_IMMEDIATE,
+    VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT,
 };
 
 enum VM_STATUS_FLAG
@@ -194,41 +225,55 @@ enum TOKEN_PUNCTUATOR
     TOKEN_PUNCTUATOR_EQUAL
 };
 
+union token_constant_t
+{
+    uint64_t uint_constant;
+    void *ptr_constant;
+    float flt_constant;
+};
 struct token_t
 {
     struct token_t *next;
-    uint64_t constant;
+    union token_constant_t constant;
+    // uint64_t constant;
     uint32_t token_class;
     uint32_t token_type;
 };
 
-#define OPCODE_FIELDS       \
-unsigned opcode : 6;        \
-unsigned operand_count : 2; \
-unsigned width : 2;         \
-unsigned operand0_type : 2; \
-unsigned operand1_type : 2 
+#define OPCODE_FIELDS           \
+unsigned opcode : 6;            \
+unsigned operand_count : 2;     \
+unsigned width : 2;             \
+unsigned operand0_class : 3;    \
+unsigned operand1_class : 3;    \
+unsigned operand2_class : 3; 
 
 struct opcode_t
 {
     OPCODE_FIELDS;
 };
 
+union operand_t
+{
+    uint64_t uint_operand;
+    void *ptr_operand;
+};
+
 struct opcode_1op_t
 {
     OPCODE_FIELDS;
-    void *operand;
+    union operand_t operand;
 };
 struct opcode_2op_t
 {
     OPCODE_FIELDS;
-    void *operands[2];
+    union operand_t operands[2];
 };
 
 struct opcode_3op_t
 {
     OPCODE_FIELDS;
-    void *operands[3];
+    union operand_t operands[3];
 };
 
 struct code_buffer_t
@@ -253,7 +298,9 @@ void vm_print_tokens(struct token_t *tokens);
 
 char *vm_translate_token(struct token_t *token);
 
-uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src);
+uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src);
+
+uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tokens);
 
 void vm_dissasemble_code(struct code_buffer_t *code_buffer);
 
@@ -265,7 +312,7 @@ uint64_t vm_alu_op(uint32_t op, uint64_t operand0, uint64_t operand1);
 
 // void vm_update_flags(uint32_t affect_flags, uint64_t operand0, uint64_t operand1, uint64_t result);
 
-void vm_execute_code(struct code_buffer_t *code_buffer);
+uint64_t vm_execute_code(struct code_buffer_t *code_buffer);
 
 void vm_print_registers();
 
