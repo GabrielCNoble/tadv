@@ -14,7 +14,7 @@ void load_scenes()
 
     struct scene_t *scene;
 
-    file = fopen("test.dat", "r");
+    file = fopen("story.dat", "r");
     fseek(file, 0, SEEK_END);
     file_len = ftell(file);
     rewind(file);

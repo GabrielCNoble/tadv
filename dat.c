@@ -296,6 +296,12 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
                         vm_set_last_error("error: error while compiling code for attribute '%s'", attrib->name);
                         goto _free_attribs;
                     }
+
+                    if(dat_next_token(parser))
+                    {
+                        vm_set_last_error("error: unexpected end reached after code attribute '%s'", attrib->name);
+                        goto _free_attribs;
+                    }
                 }
                 else
                 {
@@ -318,7 +324,7 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
         if(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
            parser->tokens->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
         {
-            vm_set_last_error("error: expecting token ';' after definition of attribute %s\n", attrib->name);
+            vm_set_last_error("error: expecting token ';' after definition of attribute '%s', got '%s'\n", attrib->name, vm_translate_token(parser->tokens));
             goto _free_attribs;
         }
 
