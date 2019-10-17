@@ -51,14 +51,19 @@ enum VM_OPCODES
     /* 
         ldi: loads an interactable into an interactable register.
 
-        'ldi interactable', where 'interactable' is a string that represents
-        the name of an interactable. The reference will  
+        'ldi ri(0-1), interactable', where 'interactable' is a string that represents
+        the name of an interactable, and ri(0-1) is a interactible register  
     */
     VM_OPCODE_LDI,
 
     /*
         ldia: gets the address of an interactable attribute. Attribute
         name works the same as in ldsca
+
+        'ldia r(0-3), ri(0-1), attribute', where 'attribute' is a string that represents
+        the interactible attribute, ri(0-1) is an interactible register that holds a pointer
+        to a interactible, and r(0-3) is a general purpouse register, which will receive the
+        pointer to the attribute
     */
     VM_OPCODE_LDIA,              
 
@@ -293,7 +298,9 @@ void vm_print_tokens(struct token_t *tokens);
 
 char *vm_translate_token(struct token_t *token);
 
-uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src);
+uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src);
+
+uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tokens);
 
 void vm_dissasemble_code(struct code_buffer_t *code_buffer);
 

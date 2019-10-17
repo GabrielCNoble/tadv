@@ -25,6 +25,7 @@ struct dat_attrib_t
         uint64_t scalar_data;
         char *str_data;
         struct dat_attrib_t *attrib;
+        struct code_buffer_t code;
     } data;
 
 };

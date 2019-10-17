@@ -116,10 +116,15 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
     struct dat_attrib_t *attrib = NULL;
     struct dat_attrib_t *attribs = NULL;
     struct token_t *token;
+    struct token_t *before_code;
+    struct token_t *prev_token;
+    struct token_t *code;
     // char *attrib_name;
     uint32_t has_opening_brace = 0;
     
     token = *tokens;
+
+    /* TODO: this parser is too fragile... */
 
     if(token->token_class != TOKEN_CLASS_IDENTIFIER)
     {
@@ -181,11 +186,11 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
                 token = token->next;
             break;
 
-            case TOKEN_CLASS_CODE:
-                attrib->type = DAT_ATTRIB_TYPE_CODE;
-                attrib->data.str_data = (char *)token->constant.ptr_constant;
-                token = token->next;
-            break;
+            // case TOKEN_CLASS_CODE:
+            //     attrib->type = DAT_ATTRIB_TYPE_CODE;
+            //     attrib->data.str_data = (char *)token->constant.ptr_constant;
+            //     token = token->next;
+            // break;
 
             case TOKEN_CLASS_PUNCTUATOR:
                 if(token->token_type == TOKEN_PUNCTUATOR_OBRACE)
@@ -196,6 +201,30 @@ struct dat_attrib_t *dat_parse(struct token_t **tokens)
                     {
                         goto _free_attribs;
                     }
+                }
+                else if(token->token_type == TOKEN_PUNCTUATOR_OPARENTHESIS)
+                {
+                    attrib->type = DAT_ATTRIB_TYPE_CODE;
+                    before_code = token;
+                    token = token->next;
+                    code = token;
+
+                    while(token->token_class != TOKEN_CLASS_PUNCTUATOR ||
+                          token->token_type != TOKEN_PUNCTUATOR_CPARENTHESIS)
+                    {
+                        prev_token = token;
+                        token = token->next;
+                    }
+
+                    prev_token->next = NULL;
+                    before_code->next = token;
+
+                    if(vm_assemble_code(&attrib->data.code, code))
+                    {
+                        printf("problem assembling code. Well, shit...\n");
+                    }
+
+                    token = token->next;
                 }
                 else
                 {

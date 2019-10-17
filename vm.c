@@ -309,7 +309,7 @@ struct token_t *vm_lex_code(const char *src)
     uint32_t token_class;
     uint32_t token_type;
     uint64_t constant;
-    char end_char;
+    // char end_char;
     char escaped;
     float float_constant;
 
@@ -323,29 +323,19 @@ struct token_t *vm_lex_code(const char *src)
 
             if(char_map[(uint32_t)src[index]] == CHAR_TYPE_PUNCTUATOR)
             {
-                if(src[index] == '"' || src[index] == '(')
+                if(src[index] == '"')
                 {
-                    if(src[index] == '"')
-                    {
-                        token_class = TOKEN_CLASS_STRING_CONSTANT;
-                        end_char = '"';
-                    }
-                    else
-                    {
-                        token_class = TOKEN_CLASS_CODE;
-                        end_char = ')';
-                    }
-                    
+                    token_class = TOKEN_CLASS_STRING_CONSTANT;   
                     token_type = 0;
 
                     index++;
                     token_str_index = 0;
 
-                    while(src[index] != end_char)
+                    while(src[index] != '"')
                     {
                         if(src[index] == '\0')
                         {
-                            vm_set_last_error("missing '%c' at the end of string constant", end_char);
+                            vm_set_last_error("missing '\"' at the end of string constant");
                             return NULL;
                         }
 
@@ -731,7 +721,14 @@ uint32_t vm_next_token(struct vm_assembler_t *assembler)
 
 #define UNEXPECTED_END_REACHED "unxpected end of tokens reached"
 
-uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
+
+uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src)
+{
+    return vm_assemble_code(code_buffer, vm_lex_code(src));
+}
+
+
+uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tokens)
 {
     uint32_t code_offset = 0;
     uint32_t constant_offset = 0;
@@ -751,7 +748,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
     /* TODO: this is outBOUNDS to go wrong... get it? */
     code = calloc(1, 2048);
 
-    assembler = vm_init_assembler(vm_lex_code(src));
+    assembler = vm_init_assembler(tokens);
 
     while(assembler.tokens)
     {
