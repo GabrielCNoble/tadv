@@ -22,7 +22,8 @@ struct dat_attrib_t
 
     union
     {
-        uint64_t scalar_data;
+        uint64_t int_data;
+        float flt_data;
         char *str_data;
         struct dat_attrib_t *attrib;
         struct code_buffer_t code;
@@ -30,11 +31,12 @@ struct dat_attrib_t
 
 };
 
-// struct dat_t
-// {
-//     struct dat_attrib_t *attribs;
-//     struct dat_attrib_t *last_attrib;
-// };
+struct dat_parser_t
+{
+    uint32_t valid_null;
+    struct token_t *tokens;
+}; 
+
 
 struct dat_attrib_t *dat_get_attrib(struct dat_attrib_t *attribs, const char *name);
 
@@ -46,6 +48,10 @@ void dat_free_attribs(struct dat_attrib_t *attribs);
 
 struct dat_attrib_t *dat_parse_dat_string(const char *src);
 
-struct dat_attrib_t *dat_parse(struct token_t **tokens);
+struct dat_attrib_t *dat_parse(struct dat_parser_t *parser);
+
+struct dat_parser_t dat_init_parser(struct token_t *tokens);
+
+uint32_t dat_next_token(struct dat_parser_t *parser);
 
 #endif

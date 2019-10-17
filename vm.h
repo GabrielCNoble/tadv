@@ -318,7 +318,7 @@ void vm_print_registers();
 
 void vm_set_last_error(const char *error, ...);
 
-const char *vm_get_last_error();
+const char *vm_get_error();
 
 struct token_t *vm_alloc_token();
 

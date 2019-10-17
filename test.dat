@@ -1,0 +1,3 @@
+one_struct = {cool_value = "VERY COOL VALUE!";};
+another_attrib = "15";
+one_more_attrib = 15;

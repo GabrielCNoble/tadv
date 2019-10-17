@@ -14,7 +14,7 @@ void load_scenes()
 
     struct scene_t *scene;
 
-    file = fopen("story.dat", "r");
+    file = fopen("test.dat", "r");
     fseek(file, 0, SEEK_END);
     file_len = ftell(file);
     rewind(file);
@@ -34,9 +34,51 @@ void load_scenes()
     // return;
 
 
-    attribs = dat_parse_dat_string(file_buffer);
-    
-    attrib = attribs;
+    attribs = dat_parse_dat_string(file_buffer);    
+    // attrib = attribs;
+
+    attrib = attribs->data.attrib;
+    while(attrib)
+    {
+        printf("%s = ", attrib->name);
+
+        switch(attrib->type)
+        {
+            case DAT_ATTRIB_TYPE_STRING:
+                printf("\"%s\"", attrib->data.str_data);
+            break;
+
+            case DAT_ATTRIB_TYPE_INT:
+                printf("%d", attrib->data.int_data);
+            break;
+            
+            case DAT_ATTRIB_TYPE_FLOAT:
+                printf("%f", attrib->data.flt_data);
+            break;
+
+            case DAT_ATTRIB_TYPE_STRUCT:
+                printf("{}");
+            break;
+
+            case DAT_ATTRIB_TYPE_CODE:
+                printf("()");
+            break;
+        }
+
+        printf("\n");
+
+        attrib = attrib->next;
+    }
+    // attrib = dat_get_attrib(attribs->data.attrib, "attrib");
+
+    // if(attrib)
+    // {
+    //     // printf("has attrib!\n");
+    //     // printf("%s\n", attrib->data.str_data);
+    // }
+
+    return;
+
 
     while(attrib)
     {

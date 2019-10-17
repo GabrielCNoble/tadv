@@ -1595,18 +1595,34 @@ void vm_print_registers()
 
 
 
-char last_error[512];
+
+#define ERROR_STACK_DEPTH 16
+#define ERROR_MESSAGE_LEN 128
+int32_t error_index = -1; 
+char last_error[ERROR_STACK_DEPTH][ERROR_MESSAGE_LEN];
 
 void vm_set_last_error(const char *error, ...)
 {
-    va_list args;
-    va_start(args, error);
-    vsprintf(last_error, error, args);
+    if(error_index < ERROR_STACK_DEPTH)
+    {    
+        error_index++;
+        va_list args;
+        va_start(args, error);
+        vsnprintf(last_error[error_index], ERROR_MESSAGE_LEN, error, args);
+    }
 }
 
-const char *vm_get_last_error()
+const char *vm_get_error()
 {
-    return last_error;
+    char *error = NULL;
+
+    if(error_index >= 0)
+    {
+        error = &last_error[error_index][0];
+        error_index--;
+    }
+
+    return error;
 }
 
 

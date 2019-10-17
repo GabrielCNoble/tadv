@@ -1,4 +1,5 @@
 #include "dat.h"
+#include "vm.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -76,6 +77,26 @@ void dat_free_attribs(struct dat_attrib_t *attribs)
     }
 }
 
+
+ 
+
+
+struct dat_parser_t dat_init_parser(struct token_t *tokens)
+{
+    struct dat_parser_t parser;
+
+    parser.tokens = tokens;
+    parser.valid_null = 1;
+
+    return parser;
+}
+
+uint32_t dat_next_token(struct dat_parser_t *parser)
+{
+    parser->tokens = parser->tokens->next;
+    return !(parser->tokens || parser->valid_null);
+}
+
 struct dat_attrib_t *dat_parse_dat_string(const char *src)
 {
     struct dat_attrib_t *attribs = NULL;
@@ -83,17 +104,25 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
     struct token_t *tokens;
     struct token_t *token;
 
-    tokens = vm_lex_code(src);
-    token = tokens;
+    struct dat_parser_t parser;
 
-    while(token)
+    // tokens = vm_lex_code(src);
+    // token = tokens;
+
+    parser = dat_init_parser(vm_lex_code(src));
+
+
+    while(parser.tokens)
     {
         attrib = calloc(1, sizeof(struct dat_attrib_t ));
         attrib->type = DAT_ATTRIB_TYPE_STRUCT;
-        attrib->data.attrib = dat_parse(&token);
+        attrib->data.attrib = dat_parse(&parser);
+        
+        // printf("stuck\n");
 
         if(!attrib->data.attrib)
         {
+            printf("%s\n", vm_get_error());
             return NULL;
         }
 
@@ -101,169 +130,227 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
         attribs = attrib;
     }
 
-    // while(tokens)
-    // {
-    //     token = tokens->next;
-    //     vm_free_token(tokens);
-    //     tokens = token;
-    // }
+    while(tokens)
+    {
+        token = tokens->next;
+        vm_free_token(tokens);
+        tokens = token;
+    }
 
     return attribs;
 }
 
-struct dat_attrib_t *dat_parse(struct token_t **tokens)
+#define UNEXPECTED_END_REACHED "unexpected end of tokens reached"
+struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
 {
     struct dat_attrib_t *attrib = NULL;
     struct dat_attrib_t *attribs = NULL;
-    struct token_t *token;
+    // struct token_t *token;
     struct token_t *before_code;
     struct token_t *prev_token;
     struct token_t *code;
     // char *attrib_name;
     uint32_t has_opening_brace = 0;
     
-    token = *tokens;
 
-    /* TODO: this parser is too fragile... */
-
-    if(token->token_class != TOKEN_CLASS_IDENTIFIER)
+    if(!parser->tokens)
     {
-        if(token->token_class == TOKEN_CLASS_PUNCTUATOR &&
-           token->token_type == TOKEN_PUNCTUATOR_OBRACE)
+        return NULL;
+    }
+
+    if(parser->tokens->token_class != TOKEN_CLASS_IDENTIFIER)
+    {
+        if(parser->tokens->token_class == TOKEN_CLASS_PUNCTUATOR &&
+           parser->tokens->token_type == TOKEN_PUNCTUATOR_OBRACE)
         {
-            token = token->next;
+            // token = token->next;
+            if(dat_next_token(parser))
+            {
+                vm_set_last_error(UNEXPECTED_END_REACHED);
+                return NULL;
+            }
+
             has_opening_brace = 1;
         }
         else
         {
-            printf("error: unexpected token at the beginning of a block attribute\n");
+            // printf("error: unexpected token at the beginning of a block attribute\n");
+            vm_set_last_error("error: expecting '{' or identifier, got '%s'", vm_translate_token(parser->tokens)); 
             return NULL;
         }
     }
 
-    while(token && (token->token_class != TOKEN_CLASS_PUNCTUATOR || 
-          token->token_type != TOKEN_PUNCTUATOR_CBRACE))
+    while(parser->tokens && (parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR || 
+          parser->tokens->token_type != TOKEN_PUNCTUATOR_CBRACE))
     {
-        if(token->token_class != TOKEN_CLASS_IDENTIFIER)
+        parser->valid_null = 0;
+
+        if(parser->tokens->token_class != TOKEN_CLASS_IDENTIFIER)
         {
-            printf("error: expected attribute identifier\n");
+            // printf("error: expected attribute identifier\n");
+            vm_set_last_error("error: expecting attribute identifier, got '%s'", vm_translate_token(parser->tokens));
             goto _free_attribs;
         }
 
         attrib = calloc(1, sizeof(struct dat_attrib_t));
-        attrib->name = strdup((char *)token->constant.ptr_constant);
+        attrib->name = strdup((char *)parser->tokens->constant.ptr_constant);
         attrib->next = attribs;
         attribs = attrib;
 
-        token = token->next;
-
-        if(token->token_class != TOKEN_CLASS_PUNCTUATOR ||
-            token->token_type != TOKEN_PUNCTUATOR_EQUAL)
+        if(dat_next_token(parser))
         {
-            printf("error: expecting a '=' after attribute name %s\n", attrib->name);
+            vm_set_last_error("error: unexpected end reached after attribute '%s'", attrib->name);
             goto _free_attribs;
         }
-        
-        token = token->next;
 
-        switch(token->token_class)
+        if(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
+            parser->tokens->token_type != TOKEN_PUNCTUATOR_EQUAL)
+        {
+            vm_set_last_error("error: expecting a '=' after attribute '%s', got '%s'", attrib->name, vm_translate_token(parser->tokens));
+            goto _free_attribs;
+        }
+
+        if(dat_next_token(parser))
+        {
+            vm_set_last_error("error: unexpected end reached after '=' for attribute '%s'", attrib->name);
+            goto _free_attribs;
+        }
+
+
+        switch(parser->tokens->token_class)
         {
             case TOKEN_CLASS_INTEGER_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_INT;
-                attrib->data.scalar_data = token->constant.uint_constant;
-                token = token->next;
+                attrib->data.int_data = parser->tokens->constant.uint_constant;
+
+                if(dat_next_token(parser))
+                {
+                    vm_set_last_error("error: unexpected end reached after attribute definition '%s'", attrib->name);
+                    goto _free_attribs;
+                }
             break;
 
             case TOKEN_CLASS_FLOAT_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_FLOAT;
-                attrib->data.scalar_data = token->constant.flt_constant;
-                token = token->next;
+                attrib->data.flt_data = parser->tokens->constant.flt_constant;
+
+                if(dat_next_token(parser))
+                {
+                    vm_set_last_error("error: unexpected end reached after attribute definition '%s'", attrib->name);
+                    goto _free_attribs;
+                }
             break;
 
             case TOKEN_CLASS_STRING_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_STRING;
-                attrib->data.str_data = (char *)token->constant.ptr_constant;
-                token = token->next;
+                attrib->data.str_data = (char *)parser->tokens->constant.ptr_constant;
+
+                if(dat_next_token(parser))
+                {
+                    vm_set_last_error("error: unexpected end reached after attribute definition '%s'", attrib->name);
+                    goto _free_attribs;
+                }
             break;
 
-            // case TOKEN_CLASS_CODE:
-            //     attrib->type = DAT_ATTRIB_TYPE_CODE;
-            //     attrib->data.str_data = (char *)token->constant.ptr_constant;
-            //     token = token->next;
-            // break;
-
             case TOKEN_CLASS_PUNCTUATOR:
-                if(token->token_type == TOKEN_PUNCTUATOR_OBRACE)
+                if(parser->tokens->token_type == TOKEN_PUNCTUATOR_OBRACE)
                 {
                     attrib->type = DAT_ATTRIB_TYPE_STRUCT;
-                    attrib->data.attrib = dat_parse(&token);
+                    attrib->data.attrib = dat_parse(parser);
                     if(!attrib->data.attrib)
                     {
                         goto _free_attribs;
                     }
+                    parser->valid_null = 0;
                 }
-                else if(token->token_type == TOKEN_PUNCTUATOR_OPARENTHESIS)
+                else if(parser->tokens->token_type == TOKEN_PUNCTUATOR_OPARENTHESIS)
                 {
                     attrib->type = DAT_ATTRIB_TYPE_CODE;
-                    before_code = token;
-                    token = token->next;
-                    code = token;
+                    before_code = parser->tokens;
 
-                    while(token->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                          token->token_type != TOKEN_PUNCTUATOR_CPARENTHESIS)
+                    if(dat_next_token(parser))
                     {
-                        prev_token = token;
-                        token = token->next;
+                        vm_set_last_error("error: unexpected end reached before code defininion for attribute '%s'", attrib->name);
+                        goto _free_attribs;
+                    }
+
+                    code = parser->tokens;
+
+                    while(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
+                          parser->tokens->token_type != TOKEN_PUNCTUATOR_CPARENTHESIS)
+                    {
+                        prev_token = parser->tokens;
+
+                        if(dat_next_token(parser))
+                        {
+                            vm_set_last_error("error: unexpected end reached while reading code for attribute '%s'", attrib->name);
+                            goto _free_attribs;
+                        }
                     }
 
                     prev_token->next = NULL;
-                    before_code->next = token;
+                    before_code->next = parser->tokens;
 
                     if(vm_assemble_code(&attrib->data.code, code))
                     {
-                        printf("problem assembling code. Well, shit...\n");
+                        vm_set_last_error("error: error while compiling code for attribute '%s'", attrib->name);
+                        goto _free_attribs;
                     }
-
-                    token = token->next;
                 }
                 else
                 {
-                    printf("error: unexpected token after '=' at attribute %s\n", attrib->name);
+                    vm_set_last_error("error: unexpected token after '=' at attribute %s\n", attrib->name);
                     goto _free_attribs;
                 }
             break;
 
             default:
-                printf("error: unexpected token after '=' at attribute %s\n", attrib->name);
+                vm_set_last_error("error: unexpected token after '=' at attribute %s\n", attrib->name);
                 goto _free_attribs;
         }
 
-        if(token->token_class != TOKEN_CLASS_PUNCTUATOR ||
-           token->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
+        // if(dat_next_token(parser))
+        // {
+        //     vm_set_last_error("error: unexpected end reached after attribute definition '%s'", attrib->name);
+        //     goto _free_attribs;
+        // }
+
+        if(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
+           parser->tokens->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
         {
-            // printf("error: missing ';' after definition of attribute %s\n", attrib->name);
-            printf("error: expecting token ';' after definition of attribute %s\n", attrib->name);
+            vm_set_last_error("error: expecting token ';' after definition of attribute %s\n", attrib->name);
             goto _free_attribs;
         }
 
-        token = token->next;
+        parser->valid_null = 1;
+        dat_next_token(parser);
     }
 
-    if((token->token_class != TOKEN_CLASS_PUNCTUATOR || 
-        token->token_type != TOKEN_PUNCTUATOR_CBRACE) && has_opening_brace)
+    /* we got here, so either token is null, or is a '}' */
+    if(!parser->tokens)
     {
-        printf("error: expecting '}' token at the end of struct attribute\n"); 
-        goto _free_attribs;
-    }
-    else if(token->token_class == TOKEN_CLASS_PUNCTUATOR && 
-            token->token_type == TOKEN_PUNCTUATOR_CBRACE && (!has_opening_brace))
-    {
-        printf("error: missing '{' at the start of struct attribute\n");
-        goto _free_attribs;
-    }
+        if(has_opening_brace)
+        {
+            /* there as a '{' at the beginning, but we ain't got a '}' here */
 
-    token = token->next;
-    *tokens = token;
+            vm_set_last_error("error: expecting '}' token at the end of struct attribute\n"); 
+            goto _free_attribs;
+        }    
+    }
+    else
+    {
+        if(!has_opening_brace)
+        {
+            /* there wasn't a '{', but we got one '}' here */
+            vm_set_last_error("error: missing '{' at the start of struct attribute\n");
+            goto _free_attribs;
+        }
+        else
+        {
+            /* all is fine :) */
+            dat_next_token(parser);   
+        }
+    }
 
     _return:
 
