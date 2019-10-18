@@ -4,6 +4,7 @@
 // #include "SDL.h"
 #include "vm.h"
 #include "scene.h"
+#include "player.h"
 
 int main(int argc, char *argv[])
 {
@@ -15,4 +16,11 @@ int main(int argc, char *argv[])
   
     vm_init();
     load_scenes();
+
+    set_scene(get_scene("test"));
+
+    while(1)
+    {
+        p_next_cmd();
+    }
 }

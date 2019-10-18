@@ -13,5 +13,7 @@ void p_use_selected();
 
 void p_use_selected_on_item(struct interactable_t *item);
 
+void p_next_cmd();
+
 
 #endif

@@ -1,17 +1,50 @@
 {
     scene = "test";
-    wow = (
 
-        mov r0, 15;
-        again:
-        print "hello\n";
-        dec r0;
-        cmp r0, 0;
-        bne again;
-        print "done\n\n";
-    );
+    description = "It's a room. You have entered it.";
+    
+    interactables = {
+        door = {
+            inspect = "This is a door";
+        };
 
-    logic = (
+        ceiling = {
+            inspect = "Ceiling";
+        };
+
+        floor = {
+            inspect = (
+                print "It is a \n";
+                mov r0, 10;
+                again:
+                print "FUCKING\n";
+                dec r0;
+                cmp r0, 0;
+                bne again;
+                print "FLOOOOOOR!!!!!\n";
+            );
+        };
+
+        chest = {
+            inspect = "A chest";
+
+            inside = {
+                key = {
+                    inspect = "Key";
+                };
+
+                candle = {
+                    inspect = "Candle";
+                };
+
+                gem = {
+                    inspect = "Gem";
+                };
+            };
+        };
+    };
+
+    lobster = (
         print "You shall not proceed onwards, son. Your jorney has ended, and you have not achieved your goals. How do you feel about it?\n";
         print "(1\)FUCK!\n";
         print "(2\)SHIT!\n";

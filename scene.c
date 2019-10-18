@@ -4,6 +4,7 @@
 #include <string.h>
 
 struct scene_t *scenes = NULL;
+struct scene_t *current_scene = NULL;
 
 void load_scenes()
 {
@@ -26,97 +27,97 @@ void load_scenes()
     struct dat_attrib_t *attribs;
     struct dat_attrib_t *attrib;
     struct dat_attrib_t *scene_attrib;
-    // struct dat_attrib_t *intro;
-
-
-    // struct token_t *tokens = vm_lex_code(file_buffer);
-    // vm_print_tokens(tokens);
-    // return;
-
 
     attribs = dat_parse_dat_string(file_buffer);    
-    // attrib = attribs;
 
-    attrib = attribs->data.attrib;
+    attrib = attribs;
     while(attrib)
     {
-        printf("%s = ", attrib->name);
+        scene_attrib = dat_get_attrib(attrib->data.attrib, "scene");
 
-        switch(attrib->type)
+        if(scene_attrib && scene_attrib->type == DAT_ATTRIB_TYPE_STRING)
         {
-            case DAT_ATTRIB_TYPE_STRING:
-                printf("\"%s\"", attrib->data.str_data);
-            break;
+            scene = calloc(1, sizeof(struct scene_t));
+            scene->attribs = attrib->data.attrib;
+            scene->name = scene_attrib->data.str_data;
 
-            case DAT_ATTRIB_TYPE_INT:
-                printf("%d", attrib->data.int_data);
-            break;
+            build_interactable_list(scene);
             
-            case DAT_ATTRIB_TYPE_FLOAT:
-                printf("%f", attrib->data.flt_data);
-            break;
-
-            case DAT_ATTRIB_TYPE_STRUCT:
-                printf("{}");
-            break;
-
-            case DAT_ATTRIB_TYPE_CODE:
-                printf("()");
-            break;
+            scene->next = scenes;
+            scenes = scene;
         }
-
-        printf("\n");
 
         attrib = attrib->next;
     }
-    // attrib = dat_get_attrib(attribs->data.attrib, "attrib");
+}
 
-    // if(attrib)
-    // {
-    //     // printf("has attrib!\n");
-    //     // printf("%s\n", attrib->data.str_data);
-    // }
-
-    return;
-
+struct interactable_t *interactable_list_recursive(struct dat_attrib_t *attrib)
+{
+    struct interactable_t *interactables = NULL;
+    struct interactable_t *interactable = NULL;
+    struct dat_attrib_t *interactable_attrib;
 
     while(attrib)
     {
-        scene = calloc(1, sizeof(struct scene_t));
-        scene->attribs = attrib->data.attrib;
-        scene_attrib = dat_get_attrib(scene->attribs, "scene");
-        scene->name = scene_attrib->data.str_data;
+        if(attrib->type == DAT_ATTRIB_TYPE_STRUCT)
+        {
+            interactable = calloc(1, sizeof(struct interactable_t));
+            interactable->name = attrib->name;
+            interactable->next = interactables;
+            interactable->attribs = attrib->data.attrib;
+            interactables = interactable;
 
-        scene->next = scenes;
-        scenes = scene;
+            interactable_attrib = dat_get_attrib(attrib->data.attrib, "over");
+            if(interactable_attrib)
+            {
+                interactable->over = interactable_list_recursive(interactable_attrib->data.attrib);
+            }
 
+            interactable_attrib = dat_get_attrib(attrib->data.attrib, "inside");
+            if(interactable_attrib)
+            {
+                interactable->inside = interactable_list_recursive(interactable_attrib->data.attrib);
+            }
+
+            interactable_attrib = dat_get_attrib(attrib->data.attrib, "under");
+            if(interactable_attrib)
+            {
+                interactable->under = interactable_list_recursive(interactable_attrib->data.attrib);
+            }
+        }
         attrib = attrib->next;
     }
 
-    scene = scenes;
+    return interactables;
+}
 
-    while(scene)
+void build_interactable_list(struct scene_t *scene)
+{
+    struct dat_attrib_t *interactables_attrib;
+
+    interactables_attrib = dat_get_attrib(scene->attribs, "interactables");
+
+    if(interactables_attrib && interactables_attrib->type == DAT_ATTRIB_TYPE_STRUCT)
     {
-        scene_attrib = dat_get_attrib(scene->attribs, "logic");
-
-        if(scene_attrib->type == DAT_ATTRIB_TYPE_CODE)
-        {
-            // if(vm_assemble_code(&scene->code, scene_attrib->data.str_data))
-            // {
-            //     printf("%s\n", vm_get_last_error());
-            // }
-            // else
-            // {
-                printf("return value: %I64d\n", vm_execute_code(&scene_attrib->data.code));
-                vm_print_registers();
-            // }
-        }
-        else
-        {
-            printf("welp, no code to run...\n");
-        }
-        scene = scene->next;
+        scene->interactables = interactable_list_recursive(interactables_attrib->data.attrib);
     }
+}
+
+struct interactable_t *get_interactable(struct scene_t *scene, char *name)
+{
+    struct interactable_t *interactable = scene->interactables;
+
+    while(interactable)
+    {
+        if(!strcmp(interactable->name, name))
+        {
+            break;
+        }
+
+        interactable = interactable->next;
+    }
+    
+    return interactable;
 }
 
 struct scene_t *get_scene(char *name)
@@ -133,4 +134,13 @@ struct scene_t *get_scene(char *name)
     }
 
     return scene;
+}
+
+void set_scene(struct scene_t *scene)
+{
+    current_scene = scene;
+}
+struct scene_t *get_current_scene()
+{
+    return current_scene;
 }

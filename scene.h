@@ -10,11 +10,19 @@ struct scene_t
     struct scene_t *next;
     char *name;
     struct dat_attrib_t *attribs;
-    struct code_buffer_t code;
+    struct interactable_t *interactables;
 };
 
 void load_scenes();
 
 struct scene_t *get_scene(char *name);
+
+void set_scene(struct scene_t *scene);
+
+struct scene_t *get_current_scene();
+
+void build_interactable_list(struct scene_t *scene);
+
+struct interactable_t *get_interactable(struct scene_t *scene, char *name);
 
 #endif
