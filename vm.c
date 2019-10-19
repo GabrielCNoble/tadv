@@ -611,7 +611,7 @@ char *vm_translate_token(struct token_t *token)
         break;
 
         case TOKEN_CLASS_INTEGER_CONSTANT:
-            sprintf(fmt, "%I64d", token->constant.uint_constant);
+            sprintf(fmt, "%ju", token->constant.uint_constant);
             return fmt;
         break;
 
@@ -1589,7 +1589,7 @@ void vm_print_registers()
     }
     for(uint32_t i = 0; i < GP_REGS_COUNT; i++)
     {
-        printf("%s: %I64d\n", gp_reg_names[i], gp_regs[i]);
+        printf("%s: %ju\n", gp_reg_names[i], gp_regs[i]);
     }
 }
 

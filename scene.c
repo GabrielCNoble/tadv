@@ -6,7 +6,7 @@
 struct scene_t *scenes = NULL;
 struct scene_t *current_scene = NULL;
 
-void load_scenes()
+int32_t load_scenes()
 {
     FILE *file;
     char *file_buffer;
@@ -16,6 +16,10 @@ void load_scenes()
     struct scene_t *scene;
 
     file = fopen("story.dat", "r");
+    if(file == NULL)
+    {
+        return -1;
+    }
     fseek(file, 0, SEEK_END);
     file_len = ftell(file);
     rewind(file);
@@ -49,6 +53,7 @@ void load_scenes()
 
         attrib = attrib->next;
     }
+    return 0;
 }
 
 struct interactable_t *interactable_list_recursive(struct dat_attrib_t *attrib)

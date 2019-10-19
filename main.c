@@ -15,7 +15,11 @@ int main(int argc, char *argv[])
     // }
   
     vm_init();
-    load_scenes();
+    if(load_scenes() == -1)
+    {
+        printf("Falha ao carregar cenas\n");
+        return 0;
+    }
 
     set_scene(get_scene("test"));
 

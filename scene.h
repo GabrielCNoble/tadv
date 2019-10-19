@@ -13,7 +13,7 @@ struct scene_t
     struct interactable_t *interactables;
 };
 
-void load_scenes();
+int32_t load_scenes();
 
 struct scene_t *get_scene(char *name);
 
