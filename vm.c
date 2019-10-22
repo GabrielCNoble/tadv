@@ -529,7 +529,7 @@ struct token_t *vm_lex_code(const char *src)
                 if(next_token->token_class == TOKEN_CLASS_STRING_CONSTANT &&
                    strlen(next_token->constant.ptr_constant) >= strlen(token_str))
                 {
-                    /* since tokes are recycled, they keep the class they had last
+                    /* since tokens are recycled, they keep the class they had last
                     time they were used. If here the allocd token is a 
                     string constant token, and the space of its previous
                     string constant is big enough, just reuse the memory */

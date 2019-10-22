@@ -72,23 +72,23 @@ struct interactable_t *interactable_list_recursive(struct dat_attrib_t *attrib)
             interactable->attribs = attrib->data.attrib;
             interactables = interactable;
 
-            // interactable_attrib = dat_get_attrib(attrib->data.attrib, "over");
-            // if(interactable_attrib)
-            // {
-            //     interactable->over = interactable_list_recursive(interactable_attrib->data.attrib);
-            // }
+            interactable_attrib = dat_get_attrib(attrib->data.attrib, "over");
+            if(interactable_attrib)
+            {
+                interactable->over = interactable_list_recursive(interactable_attrib->data.attrib);
+            }
 
-            // interactable_attrib = dat_get_attrib(attrib->data.attrib, "inside");
-            // if(interactable_attrib)
-            // {
-            //     interactable->inside = interactable_list_recursive(interactable_attrib->data.attrib);
-            // }
+            interactable_attrib = dat_get_attrib(attrib->data.attrib, "inside");
+            if(interactable_attrib)
+            {
+                interactable->inside = interactable_list_recursive(interactable_attrib->data.attrib);
+            }
 
-            // interactable_attrib = dat_get_attrib(attrib->data.attrib, "under");
-            // if(interactable_attrib)
-            // {
-            //     interactable->under = interactable_list_recursive(interactable_attrib->data.attrib);
-            // }
+            interactable_attrib = dat_get_attrib(attrib->data.attrib, "under");
+            if(interactable_attrib)
+            {
+                interactable->under = interactable_list_recursive(interactable_attrib->data.attrib);
+            }
         }
         attrib = attrib->next;
     }
