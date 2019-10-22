@@ -26,10 +26,10 @@ struct dat_attrib_t *dat_get_attrib_recursive(struct dat_attrib_t *attribs, stru
 
                 return attribs;
             }
+
             attribs = attribs->next;    
         }
     }
-    
     return NULL;
 }
 
@@ -37,18 +37,22 @@ struct dat_attrib_t *dat_get_attrib(struct dat_attrib_t *attribs, const char *na
 {
     struct token_t *tokens;
     struct token_t *token;
+    struct dat_attrib_t *ret = NULL;
 
-    tokens = vm_lex_code(name);
-    attribs = dat_get_attrib_recursive(attribs, tokens);
-
-    while(tokens)
+    if(attribs)
     {
-        token = tokens->next;
-        vm_free_token(tokens);
-        tokens = token;
+        tokens = vm_lex_code(name);
+        ret = dat_get_attrib_recursive(attribs, tokens);
+    
+        while(tokens)
+        {
+            token = tokens->next;
+            vm_free_token(tokens);
+            tokens = token;
+        }
     }
 
-    return attribs;
+    return ret;
 }
 
 void dat_del_attrib(struct dat_attrib_t *attribs, const char *name)
@@ -103,6 +107,7 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
     struct dat_attrib_t *attrib = NULL;
     struct token_t *tokens;
     struct token_t *token;
+    char *error;
 
     struct dat_parser_t parser;
 
@@ -122,7 +127,12 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
 
         if(!attrib->data.attrib)
         {
-            printf("%s\n", vm_get_error());
+            // printf("%s\n", vm_get_error());
+            while(error = vm_get_error())
+            {
+                printf("%s\n", error);
+            }
+
             return NULL;
         }
 

@@ -142,7 +142,7 @@ void vm_init()
     opcode_info[VM_OPCODE_LDSCA] = OPCODE("ldsca", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_STRING_CONSTANT, 0);
     opcode_info[VM_OPCODE_CHGSC] = OPCODE("chgsc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
     opcode_info[VM_OPCODE_LDI] = OPCODE("ldi", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_I_REGISTER, OPERAND_TYPE_STRING_CONSTANT, 0);
-    opcode_info[VM_OPCODE_LDIA] = OPCODE("ldia", sizeof(struct opcode_3op_t), 3, OPERAND_TYPE_I_REGISTER, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_STRING_CONSTANT);
+    opcode_info[VM_OPCODE_LDIA] = OPCODE("ldia", sizeof(struct opcode_3op_t), 3, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_I_REGISTER, OPERAND_TYPE_STRING_CONSTANT);
 
     opcode_info[VM_OPCODE_MOV] = OPCODE("mov", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_I_REGISTER |
@@ -188,10 +188,12 @@ void vm_init()
 
 
     opcode_info[VM_OPCODE_CMP] = OPCODE("cmp", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_I_REGISTER |
                                                                                OPERAND_TYPE_MEMORY_REGISTER | 
                                                                                OPERAND_TYPE_INT_CONSTANT, 
                                                                                
                                                                                OPERAND_TYPE_GP_REGISTER |
+                                                                               OPERAND_TYPE_I_REGISTER |
                                                                                OPERAND_TYPE_MEMORY_REGISTER | 
                                                                                OPERAND_TYPE_INT_CONSTANT, 0);
 
@@ -453,7 +455,7 @@ struct token_t *vm_lex_code(const char *src)
 
                     token_str[token_str_index] = '\0';
 
-                    for(uint32_t i = 0; opcode_info[i].name; i++)
+                    for(uint32_t i = 0; i < VM_OPCODE_LAST; i++)
                     {
                         if(!strcmp(token_str, opcode_info[i].name))
                         {
@@ -519,20 +521,41 @@ struct token_t *vm_lex_code(const char *src)
 
             next_token = vm_alloc_token();
             next_token->next = NULL;
-            next_token->token_type = token_type;
-            next_token->token_class = token_class;
 
-            if(token_class == TOKEN_CLASS_STRING_CONSTANT || token_class == TOKEN_CLASS_IDENTIFIER || token_class == TOKEN_CLASS_CODE)
+            if(token_class == TOKEN_CLASS_STRING_CONSTANT || 
+               token_class == TOKEN_CLASS_IDENTIFIER || 
+               token_class == TOKEN_CLASS_CODE)
             {
-                // constant = (uint64_t)strdup(token_str);
-                next_token->constant.ptr_constant = strdup(token_str);
+                if(next_token->token_class == TOKEN_CLASS_STRING_CONSTANT &&
+                   strlen(next_token->constant.ptr_constant) >= strlen(token_str))
+                {
+                    /* since tokes are recycled, they keep the class they had last
+                    time they were used. If here the allocd token is a 
+                    string constant token, and the space of its previous
+                    string constant is big enough, just reuse the memory */
+                    strcpy(next_token->constant.ptr_constant, token_str);
+                }
+                else
+                {
+                    /* the token is either of different type or doesn't 
+                    have enough space. */
+                    if(next_token->constant.ptr_constant)
+                    {
+                        /* in case of not enough space, get rid of the
+                        old buffer... */
+                        free(next_token->constant.ptr_constant);
+                    }
+
+                    next_token->constant.ptr_constant = strdup(token_str);
+                }
             }
             else
             {
                 next_token->constant.uint_constant = constant;
             }
-            
-            // next_token->constant = constant;
+
+            next_token->token_type = token_type;
+            next_token->token_class = token_class;
 
             if(!tokens)
             {
@@ -611,7 +634,7 @@ char *vm_translate_token(struct token_t *token)
         break;
 
         case TOKEN_CLASS_INTEGER_CONSTANT:
-            sprintf(fmt, "%ju", token->constant.uint_constant);
+            sprintf(fmt, "%I64d", token->constant.uint_constant);
             return fmt;
         break;
 
@@ -1388,6 +1411,8 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
     static char lc_str1[512];
     char *lc_str0ptr = lc_str0;
     char *lc_str1ptr = lc_str1;
+    struct interactable_t *interactable;
+    struct dat_attrib_t *attrib;
     
     vm_set_code_buffer(code_buffer);
     opcode = vm_next_opcode();
@@ -1548,7 +1573,15 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
             break;
 
             case VM_OPCODE_LDI:
-                
+                interactable = get_interactable(reg_scn, *(char **)addresses[1]);
+                memcpy(addresses[0], &interactable, sizeof(struct interactable_t **));
+            break;
+
+            case VM_OPCODE_LDIA:
+                interactable = *(struct interactable_t **)addresses[1];
+                attrib = dat_get_attrib(interactable->attribs, *(char **)addresses[2]);
+                value0 = vm_alu_op(VM_ALU_OP_PASS, (uint64_t)&attrib->data, 0);
+                memcpy(addresses[0], &value0, sizeof(uint64_t));
             break;
 
             case VM_OPCODE_IN:
@@ -1589,7 +1622,7 @@ void vm_print_registers()
     }
     for(uint32_t i = 0; i < GP_REGS_COUNT; i++)
     {
-        printf("%s: %ju\n", gp_reg_names[i], gp_regs[i]);
+        printf("%s: %I64u\n", gp_reg_names[i], gp_regs[i]);
     }
 }
 
@@ -1639,6 +1672,7 @@ struct token_t *vm_alloc_token()
     else
     {
         token = calloc(1, sizeof(struct token_t));
+        token->token_class = TOKEN_CLASS_UNKNOWN;
     }
 
     return token;
@@ -1650,6 +1684,17 @@ void vm_free_token(struct token_t *token)
     {
         token->next = free_tokens;
         free_tokens = token;
+    }
+}
+
+void vm_free_tokens(struct token_t *tokens)
+{
+    struct token_t *next_token;
+    while(tokens)
+    {
+        next_token = tokens->next;
+        vm_free_token(tokens);
+        tokens = next_token;
     }
 }
 

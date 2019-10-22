@@ -5,7 +5,38 @@
     
     interactables = {
         door = {
-            inspect = "This is a door";
+            inspect = (
+                ldsc "test";
+                ldi ri0, "door";
+                ldia r0, ri0, "is_locked";
+
+                cmp [r0], 0;
+                be _is_unlocked;
+                print "Door locked!\n";
+                ret 0;
+
+                _is_unlocked:
+                print "Door unlocked!\n";
+            );
+
+            is_locked = 1;
+        };
+
+        button = {
+            inspect = "It's a big, red button";
+
+            use = (
+                ldsc "test";
+                ldi ri0, "door";
+                ldia r0, ri0, "is_locked";
+                cmp [r0], 0;
+                be _already_pressed;
+                mov [r0], 0;
+                print "You press the red button. You hear a loud, metallic click behind you.\n";
+                ret 0;
+                _already_pressed:
+                print "You press the red button, but nothing happens.\n";
+            );
         };
 
         ceiling = {
@@ -26,7 +57,28 @@
         };
 
         chest = {
-            inspect = "A chest";
+            inspect = (
+                ldsc "test";
+                ldi ri0, "chest";
+                ldia r0, ri0, "chest_open";
+                
+                cmp [r0], 0;
+                bne _chest_open;
+                print "Chest locked :(\n";
+                ret 0;
+
+                _chest_open:
+                print "Chest unlocked :)\n";
+            );
+
+            open = (
+                ldsc "test";
+                ldi ri0, "chest";
+                ldia r0, ri0, "chest_open";
+                mov [r0], 1;
+            );
+
+            chest_open = 0;
 
             inside = {
                 key = {
