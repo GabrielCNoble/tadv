@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "interactable.h"
 #include "scene.h"
@@ -634,7 +635,7 @@ char *vm_translate_token(struct token_t *token)
         break;
 
         case TOKEN_CLASS_INTEGER_CONSTANT:
-            sprintf(fmt, "%I64d", token->constant.uint_constant);
+            sprintf(fmt, PRIu64, token->constant.uint_constant);
             return fmt;
         break;
 
@@ -1574,7 +1575,7 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
 
             case VM_OPCODE_LDI:
                 interactable = get_interactable(reg_scn, *(char **)addresses[1]);
-                memcpy(addresses[0], &interactable, sizeof(struct interactable_t **));
+                memcpy(addresses[0], &interactable, sizeof(struct interactable_t *));
             break;
 
             case VM_OPCODE_LDIA:
@@ -1622,7 +1623,7 @@ void vm_print_registers()
     }
     for(uint32_t i = 0; i < GP_REGS_COUNT; i++)
     {
-        printf("%s: %I64u\n", gp_reg_names[i], gp_regs[i]);
+        printf("%s: %" PRIu64 "\n", gp_reg_names[i], gp_regs[i]);
     }
 }
 

@@ -107,7 +107,7 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
     struct dat_attrib_t *attrib = NULL;
     struct token_t *tokens;
     struct token_t *token;
-    char *error;
+    const char *error;
 
     struct dat_parser_t parser;
 
@@ -128,7 +128,7 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
         if(!attrib->data.attrib)
         {
             // printf("%s\n", vm_get_error());
-            while(error = vm_get_error())
+            while((error = vm_get_error()))
             {
                 printf("%s\n", error);
             }

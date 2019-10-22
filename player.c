@@ -59,7 +59,7 @@ void p_next_cmd()
     // struct scene_t *current_scene;
     struct interactable_t *interactable;
     struct dat_attrib_t *attrib;
-    struct dat_attrib_t *inspect;
+    // struct dat_attrib_t *inspect;
     struct token_t *tokens;
     struct token_t *token;
     uint32_t command = PLAYER_CMD_UNKNOWN;
