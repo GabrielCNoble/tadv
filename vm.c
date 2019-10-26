@@ -80,13 +80,7 @@ enum OPERAND_TYPES
 };
 
 
-struct opcode_info_t
-{
-    char *name;
-    uint32_t offset;
-    uint32_t operand_count;
-    uint16_t allowed_operand_types[3];
-};
+
   
 struct register_info_t
 {
@@ -104,7 +98,9 @@ struct register_info_t
                            .allowed_operand_types[2] = a2}
 
 
-struct opcode_info_t opcode_info[VM_OPCODE_LAST] = {};
+struct opcode_info_t opcode_info[VM_OPCODE_MAX] = {};
+uint32_t custom_opcode_count = 0;
+// struct custom_opcode_info_t custom_opcode_info[VM_OPCODE_MAX - VM_OPCODE_LAST] = {};
 char char_map[512] = {CHAR_TYPE_BLANK};
 
 struct scene_t *reg_scn = NULL;
@@ -112,9 +108,11 @@ void *reg_pc;
 uint8_t reg_status;
 char *gp_reg_names[] = {"r0", "r1", "r2", "r3"};
 char *i_reg_names[] = {"ri0", "ri1"};
+char *stack;
 
 #define GP_REGS_COUNT (sizeof(gp_reg_names) / sizeof(gp_reg_names[0]))
 #define I_REGS_COUNT (sizeof(i_reg_names) / sizeof(i_reg_names[0]))
+#define STACK_SIZE 2048
 
 uint64_t gp_regs[GP_REGS_COUNT];
 struct interactible_t *i_regs[I_REGS_COUNT];
@@ -132,8 +130,7 @@ struct token_t *free_tokens = NULL;
 struct vm_assembler_t
 {
     uint32_t parsing_instruction;
-    struct token_t *prev_token;
-    struct token_t *tokens;
+    struct vm_lexer_t lexer;
 }; 
    
 void vm_init()
@@ -224,32 +221,33 @@ void vm_init()
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_BE] = OPCODE("be", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
+    opcode_info[VM_OPCODE_JE] = OPCODE("je", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                              OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_BNE] = OPCODE("bne", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JNE] = OPCODE("jne", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_BG] = OPCODE("bg", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JG] = OPCODE("jg", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                              OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_BL] = OPCODE("bl", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JL] = OPCODE("jl", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                              OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_BGE] = OPCODE("bge", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JGE] = OPCODE("jge", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_BLE] = OPCODE("ble", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JLE] = OPCODE("jle", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
     opcode_info[VM_OPCODE_IN] = OPCODE("in", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER, 0, 0);
     opcode_info[VM_OPCODE_RET] = OPCODE("ret", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | OPERAND_TYPE_INT_CONSTANT, 0, 0);
-
+    // opcode_info[VM_OPCODE_CALL] = OPCODE("call", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_LABEL | OPERAND_TYPE_GP_REGISTER, 0, 0);
+   
     opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0, 0, 0, 0);
 
     
@@ -295,283 +293,504 @@ void vm_init()
     char_map['\0'] = CHAR_TYPE_BLANK;
     char_map[' '] = CHAR_TYPE_BLANK;
 
-    // for(uint32_t i = 0; i < GPR_COUNT; i++)
-    // {
-    //     sprintf(reg_names + i, "r%d", i);
-    // }
+    // stack = calloc(1, STACK_SIZE);
 }
 
-struct token_t *vm_lex_code(const char *src)
+// struct token_t *vm_lex_code(const char *src)
+// {
+//     uint32_t index = 0;
+//     uint32_t token_str_index;
+//     static char token_str[512];
+//     struct token_t *tokens = NULL;
+//     struct token_t *next_token = NULL;
+//     struct token_t *last_token = NULL;
+//     uint32_t token_class;
+//     uint32_t token_type;
+//     uint64_t constant;
+//     // char end_char;
+//     char escaped;
+//     float float_constant;
+
+//     while(src[index])
+//     {
+//         while(char_map[(uint32_t)src[index]] == CHAR_TYPE_BLANK && src[index] != '\0') index++;
+
+//         if(src[index] != '\0')
+//         {
+//             token_class = TOKEN_CLASS_UNKNOWN;
+
+//             if(char_map[(uint32_t)src[index]] == CHAR_TYPE_PUNCTUATOR)
+//             {
+//                 if(src[index] == '"')
+//                 {
+//                     token_class = TOKEN_CLASS_STRING_CONSTANT;   
+//                     token_type = 0;
+
+//                     index++;
+//                     token_str_index = 0;
+
+//                     while(src[index] != '"')
+//                     {
+//                         if(src[index] == '\0')
+//                         {
+//                             vm_set_last_error("missing '\"' at the end of string constant");
+//                             return NULL;
+//                         }
+
+//                         if(src[index] == '\\')
+//                         {
+//                             index++;
+
+//                             escaped = src[index++];
+
+//                             switch(escaped)
+//                             {
+//                                 case 'n':
+//                                     escaped = '\n';
+//                                 break;
+
+//                                 case 't':
+//                                     escaped = '\t';
+//                                 break;
+
+//                                 case '0':
+//                                     escaped = '\0';
+//                                 break;
+//                             }
+//                         }
+//                         else
+//                         {
+//                             escaped = src[index++];
+//                         }
+                        
+//                         token_str[token_str_index++] = escaped;
+//                     }
+
+//                     index++;
+//                     token_str[token_str_index] = '\0';
+//                 }
+//                 else
+//                 {
+//                     token_class = TOKEN_CLASS_PUNCTUATOR;
+                    
+//                     switch(src[index])
+//                     {
+//                         case ',':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_COMMA;
+//                         break;
+
+//                         case '.':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_DOT;
+//                         break;
+
+//                         case ':':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_COLON;
+//                         break;      
+
+//                         case ';':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_SEMICOLON;
+//                         break;
+
+//                         case '(':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_OPARENTHESIS;
+//                         break;
+
+//                         case ')':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_CPARENTHESIS;
+//                         break;
+
+//                         case '[':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_OBRACKET;
+//                         break;
+
+//                         case ']':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_CBRACKET;
+//                         break;
+
+//                         case '=':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_EQUAL;
+//                         break;
+
+//                         case '{':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_OBRACE;
+//                         break;
+
+//                         case '}':
+//                             index++;
+//                             token_type = TOKEN_PUNCTUATOR_CBRACE;
+//                         break;
+
+//                         default:
+//                             token_class = TOKEN_CLASS_UNKNOWN;
+//                         break;
+//                     }
+//                 }
+//             }
+//             else
+//             {
+//                 if(char_map[(uint32_t)src[index]] == CHAR_TYPE_LETTER)
+//                 {
+//                     token_class = TOKEN_CLASS_IDENTIFIER;
+//                     token_type = 0;
+//                     token_str_index = 0;
+
+//                     while(!(char_map[(uint32_t)src[index]] & (CHAR_TYPE_BLANK | CHAR_TYPE_PUNCTUATOR)))
+//                     {
+//                         token_str[token_str_index++] = src[index++];
+//                     }
+
+//                     token_str[token_str_index] = '\0';
+
+//                     for(uint32_t i = 0; i < VM_OPCODE_LAST + custom_opcode_count; i++)
+//                     {
+//                         if(!strcmp(token_str, opcode_info[i].name))
+//                         {
+//                             token_class = TOKEN_CLASS_INSTRUCTION;
+//                             constant = i;
+//                             break;
+//                         }
+//                     }
+//                 }
+//                 else
+//                 {
+//                     token_class = TOKEN_CLASS_INTEGER_CONSTANT;
+//                     token_type = 0;
+//                     token_str_index = 0;
+
+//                     while(char_map[(uint32_t)src[index]] == CHAR_TYPE_NUMBER)
+//                     {
+//                         token_str[token_str_index++] = src[index++];
+//                     }
+
+//                     if(src[index] == '.')
+//                     {
+//                         token_class = TOKEN_CLASS_FLOAT_CONSTANT;
+            
+//                         token_str[token_str_index++] = src[index++];
+
+//                         if(char_map[(uint32_t)src[index]] != CHAR_TYPE_NUMBER)
+//                         {
+//                             vm_set_last_error("unexpected token %c", src[index]);
+//                             return NULL;
+//                         }
+
+//                         while(char_map[(uint32_t)src[index]] == CHAR_TYPE_NUMBER)
+//                         {
+//                             token_str[token_str_index++] = src[index++];
+//                         }
+
+//                         /* TODO: allow for scientific notation? */
+//                         if(char_map[(uint32_t)src[index]] != CHAR_TYPE_BLANK)
+//                         {
+//                             vm_set_last_error("unexpected token %c", src[index]);
+//                             return NULL;
+//                         }
+
+//                         token_str[token_str_index] = '\0';
+//                         float_constant = atof(token_str);
+
+//                         constant = *(uint32_t *)&float_constant;
+//                     }
+//                     else
+//                     {
+//                         token_str[token_str_index] = '\0';
+//                         constant = atoi(token_str);
+//                     }
+//                 }
+//             }
+
+//             if(token_class == TOKEN_CLASS_UNKNOWN)
+//             {
+//                 vm_set_last_error("unknown token %c", src[index]);
+//                 return NULL;
+//             }
+
+//             next_token = vm_alloc_token();
+//             next_token->next = NULL;
+
+//             if(token_class == TOKEN_CLASS_STRING_CONSTANT || 
+//                token_class == TOKEN_CLASS_IDENTIFIER || 
+//                token_class == TOKEN_CLASS_CODE)
+//             {
+//                 if(next_token->token_class == TOKEN_CLASS_STRING_CONSTANT &&
+//                    strlen(next_token->constant.ptr_constant) >= strlen(token_str))
+//                 {
+//                     /* since tokens are recycled, they keep the class they had last
+//                     time they were used. If here the allocd token is a 
+//                     string constant token, and the space of its previous
+//                     string constant is big enough, just reuse the memory */
+//                     strcpy(next_token->constant.ptr_constant, token_str);
+//                 }
+//                 else
+//                 {
+//                     /* the token is either of different type or doesn't 
+//                     have enough space. */
+//                     if(next_token->constant.ptr_constant)
+//                     {
+//                         /* in case of not enough space, get rid of the
+//                         old buffer... */
+//                         free(next_token->constant.ptr_constant);
+//                     }
+
+//                     next_token->constant.ptr_constant = strdup(token_str);
+//                 }
+//             }
+//             else
+//             {
+//                 next_token->constant.uint_constant = constant;
+//             }
+
+//             next_token->token_type = token_type;
+//             next_token->token_class = token_class;
+
+//             if(!tokens)
+//             {
+//                 tokens = next_token;
+//             }
+//             else
+//             {
+//                 last_token->next = next_token;
+//             }
+
+//             last_token = next_token;
+//         }
+//     }
+
+//     return tokens;
+// }
+
+uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
 {
-    uint32_t index = 0;
+    // uint32_t index = *offset;
     uint32_t token_str_index;
-    static char token_str[512];
-    struct token_t *tokens = NULL;
-    struct token_t *next_token = NULL;
-    struct token_t *last_token = NULL;
-    uint32_t token_class;
-    uint32_t token_type;
-    uint64_t constant;
+    // static char token_str[512];
+    // struct token_t *tokens = NULL;
+    // struct token_t *next_token = NULL;
+    // struct token_t *last_token = NULL;
+    // uint32_t token_class;
+    // uint32_t token_type;
+    // uint64_t constant;
     // char end_char;
     char escaped;
-    float float_constant;
+    // float float_constant;
 
-    while(src[index])
+    // struct token_t token;
+
+    lexer->token.token_class = TOKEN_CLASS_UNKNOWN;
+
+    // while(src[index])
+    // {
+    lexer->prev_offset = lexer->offset;
+
+    while(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_BLANK && lexer->src[lexer->offset] != '\0') lexer->offset++;
+
+    if(lexer->src[lexer->offset] != '\0')
     {
-        while(char_map[(uint32_t)src[index]] == CHAR_TYPE_BLANK && src[index] != '\0') index++;
-
-        if(src[index] != '\0')
+        if(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_PUNCTUATOR)
         {
-            token_class = TOKEN_CLASS_UNKNOWN;
-
-            if(char_map[(uint32_t)src[index]] == CHAR_TYPE_PUNCTUATOR)
+            if(lexer->src[lexer->offset] == '"')
             {
-                if(src[index] == '"')
+                lexer->token.token_class = TOKEN_CLASS_STRING_CONSTANT;
+                lexer->offset++;
+                token_str_index = 0;
+
+                while(lexer->src[lexer->offset] != '"')
                 {
-                    token_class = TOKEN_CLASS_STRING_CONSTANT;   
-                    token_type = 0;
-
-                    index++;
-                    token_str_index = 0;
-
-                    while(src[index] != '"')
+                    if(lexer->src[lexer->offset] == '\0')
                     {
-                        if(src[index] == '\0')
-                        {
-                            vm_set_last_error("missing '\"' at the end of string constant");
-                            return NULL;
-                        }
-
-                        if(src[index] == '\\')
-                        {
-                            index++;
-
-                            escaped = src[index++];
-
-                            switch(escaped)
-                            {
-                                case 'n':
-                                    escaped = '\n';
-                                break;
-
-                                case 't':
-                                    escaped = '\t';
-                                break;
-
-                                case '0':
-                                    escaped = '\0';
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            escaped = src[index++];
-                        }
-                        
-                        token_str[token_str_index++] = escaped;
+                        vm_set_last_error("missing '\"' at the end of string constant");
+                        return 1;
                     }
 
-                    index++;
-                    token_str[token_str_index] = '\0';
-                }
-                else
-                {
-                    token_class = TOKEN_CLASS_PUNCTUATOR;
-                    
-                    switch(src[index])
+                    if(lexer->src[lexer->offset] == '\\')
                     {
-                        case ',':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_COMMA;
-                        break;
+                        lexer->offset++;
 
-                        case '.':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_DOT;
-                        break;
+                        escaped = lexer->src[lexer->offset++];
 
-                        case ':':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_COLON;
-                        break;      
-
-                        case ';':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_SEMICOLON;
-                        break;
-
-                        case '(':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_OPARENTHESIS;
-                        break;
-
-                        case ')':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_CPARENTHESIS;
-                        break;
-
-                        case '[':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_OBRACKET;
-                        break;
-
-                        case ']':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_CBRACKET;
-                        break;
-
-                        case '=':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_EQUAL;
-                        break;
-
-                        case '{':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_OBRACE;
-                        break;
-
-                        case '}':
-                            index++;
-                            token_type = TOKEN_PUNCTUATOR_CBRACE;
-                        break;
-
-                        default:
-                            token_class = TOKEN_CLASS_UNKNOWN;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                if(char_map[(uint32_t)src[index]] == CHAR_TYPE_LETTER)
-                {
-                    token_class = TOKEN_CLASS_IDENTIFIER;
-                    token_type = 0;
-                    token_str_index = 0;
-
-                    while(!(char_map[(uint32_t)src[index]] & (CHAR_TYPE_BLANK | CHAR_TYPE_PUNCTUATOR)))
-                    {
-                        token_str[token_str_index++] = src[index++];
-                    }
-
-                    token_str[token_str_index] = '\0';
-
-                    for(uint32_t i = 0; i < VM_OPCODE_LAST; i++)
-                    {
-                        if(!strcmp(token_str, opcode_info[i].name))
+                        switch(escaped)
                         {
-                            token_class = TOKEN_CLASS_INSTRUCTION;
-                            constant = i;
+                            case 'n':
+                                escaped = '\n';
+                            break;
+
+                            case 't':
+                                escaped = '\t';
+                            break;
+
+                            case '0':
+                                escaped = '\0';
                             break;
                         }
                     }
-                }
-                else
-                {
-                    token_class = TOKEN_CLASS_INTEGER_CONSTANT;
-                    token_type = 0;
-                    token_str_index = 0;
-
-                    while(char_map[(uint32_t)src[index]] == CHAR_TYPE_NUMBER)
-                    {
-                        token_str[token_str_index++] = src[index++];
-                    }
-
-                    if(src[index] == '.')
-                    {
-                        token_class = TOKEN_CLASS_FLOAT_CONSTANT;
-            
-                        token_str[token_str_index++] = src[index++];
-
-                        if(char_map[(uint32_t)src[index]] != CHAR_TYPE_NUMBER)
-                        {
-                            vm_set_last_error("unexpected token %c", src[index]);
-                            return NULL;
-                        }
-
-                        while(char_map[(uint32_t)src[index]] == CHAR_TYPE_NUMBER)
-                        {
-                            token_str[token_str_index++] = src[index++];
-                        }
-
-                        /* TODO: allow for scientific notation? */
-                        if(char_map[(uint32_t)src[index]] != CHAR_TYPE_BLANK)
-                        {
-                            vm_set_last_error("unexpected token %c", src[index]);
-                            return NULL;
-                        }
-
-                        token_str[token_str_index] = '\0';
-                        float_constant = atof(token_str);
-
-                        constant = *(uint32_t *)&float_constant;
-                    }
                     else
                     {
-                        token_str[token_str_index] = '\0';
-                        constant = atoi(token_str);
+                        escaped = lexer->src[lexer->offset++];
+                    }
+                    
+                    lexer->token_str[token_str_index++] = escaped;
+                }
+
+                lexer->offset++;
+                lexer->token_str[token_str_index] = '\0';
+                lexer->token.constant.ptr_constant = lexer->token_str;
+            }
+            else
+            {
+                lexer->token.token_class = TOKEN_CLASS_PUNCTUATOR;
+                
+                switch(lexer->src[lexer->offset])
+                {
+                    case ',':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_COMMA;
+                    break;
+
+                    case '.':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_DOT;
+                    break;
+
+                    case ':':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_COLON;
+                    break;      
+
+                    case ';':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_SEMICOLON;
+                    break;
+
+                    case '(':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_OPARENTHESIS;
+                    break;
+
+                    case ')':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_CPARENTHESIS;
+                    break;
+
+                    case '[':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_OBRACKET;
+                    break;
+
+                    case ']':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_CBRACKET;
+                    break;
+
+                    case '=':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_EQUAL;
+                    break;
+
+                    case '{':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_OBRACE;
+                    break;
+
+                    case '}':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_CBRACE;
+                    break;
+
+                    default:
+                        lexer->token.token_type = TOKEN_CLASS_UNKNOWN;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            if(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_LETTER)
+            {
+                lexer->token.token_class = TOKEN_CLASS_IDENTIFIER;
+                lexer->token.token_type = 0;
+                token_str_index = 0;
+
+                while(!(char_map[(uint32_t)lexer->src[lexer->offset]] & (CHAR_TYPE_BLANK | CHAR_TYPE_PUNCTUATOR)))
+                {
+                    lexer->token_str[token_str_index++] = lexer->src[lexer->offset++];
+                }
+
+                lexer->token_str[token_str_index] = '\0';
+                lexer->token.constant.ptr_constant = lexer->token_str;
+
+                for(uint32_t i = 0; i < VM_OPCODE_LAST + custom_opcode_count; i++)
+                {
+                    if(!strcmp(lexer->token_str, opcode_info[i].name))
+                    {
+                        lexer->token.token_class = TOKEN_CLASS_INSTRUCTION;
+                        lexer->token.constant.uint_constant = i;
+                        break;
                     }
                 }
             }
-
-            if(token_class == TOKEN_CLASS_UNKNOWN)
+            else
             {
-                vm_set_last_error("unknown token %c", src[index]);
-                return NULL;
-            }
+                lexer->token.token_class = TOKEN_CLASS_INTEGER_CONSTANT;
+                token_str_index = 0;
 
-            next_token = vm_alloc_token();
-            next_token->next = NULL;
-
-            if(token_class == TOKEN_CLASS_STRING_CONSTANT || 
-               token_class == TOKEN_CLASS_IDENTIFIER || 
-               token_class == TOKEN_CLASS_CODE)
-            {
-                if(next_token->token_class == TOKEN_CLASS_STRING_CONSTANT &&
-                   strlen(next_token->constant.ptr_constant) >= strlen(token_str))
+                while(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_NUMBER)
                 {
-                    /* since tokens are recycled, they keep the class they had last
-                    time they were used. If here the allocd token is a 
-                    string constant token, and the space of its previous
-                    string constant is big enough, just reuse the memory */
-                    strcpy(next_token->constant.ptr_constant, token_str);
+                    lexer->token_str[token_str_index++] = lexer->src[lexer->offset++];
+                }
+
+                if(lexer->src[lexer->offset] == '.')
+                {
+                    lexer->token.token_class = TOKEN_CLASS_FLOAT_CONSTANT;
+        
+                    lexer->token_str[token_str_index++] = lexer->src[lexer->offset++];
+
+                    if(char_map[(uint32_t)lexer->src[lexer->offset]] != CHAR_TYPE_NUMBER)
+                    {
+                        vm_set_last_error("unexpected token %c", lexer->src[lexer->offset]);
+                        return 1;
+                    }
+
+                    while(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_NUMBER)
+                    {
+                        lexer->token_str[token_str_index++] = lexer->src[lexer->offset++];
+                    }
+
+                    /* TODO: allow for scientific notation? */
+                    if(char_map[(uint32_t)lexer->src[lexer->offset]] != CHAR_TYPE_BLANK)
+                    {
+                        vm_set_last_error("unexpected token %c", lexer->src[lexer->offset]);
+                        return 1;
+                    }
+
+                    lexer->token_str[token_str_index] = '\0';
+                    lexer->token.constant.flt_constant = atof(lexer->token_str);
                 }
                 else
                 {
-                    /* the token is either of different type or doesn't 
-                    have enough space. */
-                    if(next_token->constant.ptr_constant)
-                    {
-                        /* in case of not enough space, get rid of the
-                        old buffer... */
-                        free(next_token->constant.ptr_constant);
-                    }
-
-                    next_token->constant.ptr_constant = strdup(token_str);
+                    lexer->token_str[token_str_index] = '\0';
+                    lexer->token.constant.uint_constant = atoi(lexer->token_str);
                 }
             }
-            else
-            {
-                next_token->constant.uint_constant = constant;
-            }
+        }
 
-            next_token->token_type = token_type;
-            next_token->token_class = token_class;
-
-            if(!tokens)
-            {
-                tokens = next_token;
-            }
-            else
-            {
-                last_token->next = next_token;
-            }
-
-            last_token = next_token;
+        if(lexer->token.token_class == TOKEN_CLASS_UNKNOWN)
+        {
+            vm_set_last_error("unknown token %c", lexer->src[lexer->offset]);
+            return 1;
         }
     }
 
-    return tokens;
+    return 0;
 }
 
 void vm_print_tokens(struct token_t *tokens)
@@ -715,44 +934,50 @@ char *vm_translate_token(struct token_t *token)
     return "";
 }
 
-void vm_copy_bytes(char *buffer, uint32_t *offset, void *data, uint32_t size)
+void vm_init_lexer(struct vm_lexer_t *lexer, const char *src)
 {
-    uint32_t o;
-
-    o = *offset;
-    memcpy(buffer + o, data, size);
-    o += size;
-    *offset = o;
+    lexer->offset = 0;
+    lexer->src = src;
+    lexer->token.token_class = TOKEN_CLASS_UNKNOWN;
 }
 
+// void vm_copy_bytes(char *buffer, uint32_t *offset, void *data, uint32_t size)
+// {
+//     uint32_t o;
 
-struct vm_assembler_t vm_init_assembler(struct token_t *tokens)
+//     o = *offset;
+//     memcpy(buffer + o, data, size);
+//     o += size;
+//     *offset = o;
+// }
+
+
+struct vm_assembler_t vm_init_assembler(const char *src)
 {
     struct vm_assembler_t assembler;
 
     assembler.parsing_instruction = 0;
-    assembler.tokens = tokens;
+    vm_init_lexer(&assembler.lexer, src);
 
     return assembler;
 }
 
 uint32_t vm_next_token(struct vm_assembler_t *assembler)
 {
-    assembler->prev_token = assembler->tokens;
-    assembler->tokens = assembler->tokens->next;
-    return assembler->parsing_instruction && (!assembler->tokens);
+    vm_lex_one_token(&assembler->lexer);
+    return assembler->parsing_instruction && (assembler->lexer.token.token_class == TOKEN_CLASS_UNKNOWN);
 }
 
 #define UNEXPECTED_END_REACHED "unxpected end of tokens reached"
 
 
-uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src)
-{
-    return vm_assemble_code(code_buffer, vm_lex_code(src));
-}
+// uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src)
+// {
+//     return vm_assemble_code(code_buffer, vm_lex_code(src));
+// }
 
 
-uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tokens)
+uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 {
     uint32_t code_offset = 0;
     uint32_t constant_offset = 0;
@@ -772,28 +997,24 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
     /* TODO: this is outBOUNDS to go wrong... get it? */
     code = calloc(1, 2048);
 
-    assembler = vm_init_assembler(tokens);
+    assembler = vm_init_assembler(src);
+    vm_next_token(&assembler);
 
-    while(assembler.tokens)
+    while(assembler.lexer.token.token_class != TOKEN_CLASS_UNKNOWN)
     {
-        if(assembler.tokens->token_class == TOKEN_CLASS_INSTRUCTION)
+        if(assembler.lexer.token.token_class == TOKEN_CLASS_INSTRUCTION)
         {
             opcode = (struct opcode_t *)(code + code_offset);
-            code_offset += opcode_info[assembler.tokens->constant.uint_constant].offset;
+            code_offset += opcode_info[assembler.lexer.token.constant.uint_constant].offset;
 
-            opcode->opcode = assembler.tokens->constant.uint_constant;
+            opcode->opcode = assembler.lexer.token.constant.uint_constant;
             opcode->operand_count = opcode_info[opcode->opcode].operand_count;
-
-            // printf("%s\n", vm_translate_token(assembler.tokens));
 
             if(vm_next_token(&assembler))
             {
                 vm_set_last_error(UNEXPECTED_END_REACHED);
                 return 1;
             }
-
-            
-            // printf("%s\n", vm_translate_token(assembler.tokens));
 
             assembler.parsing_instruction = 1;
             opcode_3op = (struct opcode_3op_t *)opcode;
@@ -802,12 +1023,10 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
             operand_classes[1] = VM_OPCODE_OPERAND_CLASS_NONE;
             operand_classes[2] = VM_OPCODE_OPERAND_CLASS_NONE;
 
-            // printf("%d\n", opcode->operand_count);
-
             for(uint32_t operand_index = 0; operand_index < opcode->operand_count; operand_index++)
             {
-                if(assembler.tokens->token_class == TOKEN_CLASS_PUNCTUATOR &&
-                    assembler.tokens->token_type == TOKEN_PUNCTUATOR_OBRACKET)
+                if(assembler.lexer.token.token_class == TOKEN_CLASS_PUNCTUATOR &&
+                    assembler.lexer.token.token_type == TOKEN_PUNCTUATOR_OBRACKET)
                 {
                     /* [ */
 
@@ -821,10 +1040,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                     }
                 }
 
-                
-                // printf("%s\n", vm_translate_token(assembler.tokens));
-
-                switch(assembler.tokens->token_class)
+                switch(assembler.lexer.token.token_class)
                 {
                     case TOKEN_CLASS_STRING_CONSTANT:
                         if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_MEMORY)
@@ -840,8 +1056,8 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                         }
 
                         operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT;
-                        opcode_3op->operands[operand_index].ptr_operand = assembler.tokens->constant.ptr_constant;
-                        constant_offset += strlen((char *)assembler.tokens->constant.ptr_constant) + 1;
+                        opcode_3op->operands[operand_index].ptr_operand = strdup(assembler.lexer.token.constant.ptr_constant);
+                        constant_offset += strlen((char *)assembler.lexer.token.constant.ptr_constant) + 1;
 
                         if(vm_next_token(&assembler))
                         {
@@ -860,7 +1076,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
 
                         for(register_index = 0; register_index < GP_REGS_COUNT; register_index++)
                         {
-                            if(!strcmp(gp_reg_names[register_index], (char *)assembler.tokens->constant.ptr_constant))
+                            if(!strcmp(gp_reg_names[register_index], (char *)assembler.lexer.token.constant.ptr_constant))
                             {
                                 opcode_3op->operands[operand_index].ptr_operand = (gp_regs + register_index);
                                 break;
@@ -873,13 +1089,13 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
 
                             for(register_index = 0; register_index < I_REGS_COUNT; register_index++)
                             {
-                                if(!strcmp(i_reg_names[register_index], (char *)assembler.tokens->constant.ptr_constant))
+                                if(!strcmp(i_reg_names[register_index], (char *)assembler.lexer.token.constant.ptr_constant))
                                 {
                                     opcode_3op->operands[operand_index].ptr_operand = (i_regs + register_index);
                                     break;
                                 }
                             }
-
+ 
                             if(register_index == I_REGS_COUNT)
                             {
                                 /* not an interactible register, so test to see if this instruction allows labels */
@@ -889,12 +1105,14 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                                     of this operand to none. Once all the code has been assembled, 
                                     and all the labels discovered, we patch the jmp instructions with 
                                     the correct address */
-                                    opcode_3op->operands[operand_index].ptr_operand = assembler.tokens->constant.ptr_constant;
+                                    // opcode_3op->operands[operand_index].ptr_operand = alloca(strlen(assembler.lexer.token.constant.ptr_constant) + 1);
+                                    // strcpy(opcode_3op->operands[operand_index].ptr_operand, assembler.lexer.token.constant.ptr_constant);
+                                    opcode_3op->operands[operand_index].ptr_operand = strdup(assembler.lexer.token.constant.ptr_constant);
                                     operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_NONE;
                                 }
                                 else
                                 {
-                                    vm_set_last_error("expecting a register name for operand %d, got '%s'", operand_index, vm_translate_token(assembler.tokens));
+                                    vm_set_last_error("expecting a register name for operand %d, got '%s'", operand_index, vm_translate_token(&assembler.lexer.token));
                                     return 1;
                                 }  
                             } 
@@ -936,7 +1154,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                         }
 
                         operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_IMMEDIATE;
-                        opcode_3op->operands[operand_index].uint_operand = assembler.tokens->constant.uint_constant;
+                        opcode_3op->operands[operand_index].uint_operand = assembler.lexer.token.constant.uint_constant;
                         constant_offset += sizeof(uint64_t);
 
                         if(vm_next_token(&assembler))
@@ -955,10 +1173,10 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                 if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_MEMORY)
                 {
                     /* ] */
-                    if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                        assembler.tokens->token_type != TOKEN_PUNCTUATOR_CBRACKET)
+                    if(assembler.lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR ||
+                        assembler.lexer.token.token_type != TOKEN_PUNCTUATOR_CBRACKET)
                     {
-                        vm_set_last_error("expecting token ']' after register name, got '%s'", vm_translate_token(assembler.tokens));
+                        vm_set_last_error("expecting token ']' after register name, got '%s'", vm_translate_token(&assembler.lexer.token));
                         return 1;
                     }
                     
@@ -972,10 +1190,10 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                 if(operand_index + 1 < opcode->operand_count)
                 {
                     /* , (only if not last operand) */
-                    if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                        assembler.tokens->token_type != TOKEN_PUNCTUATOR_COMMA)
+                    if(assembler.lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR ||
+                        assembler.lexer.token.token_type != TOKEN_PUNCTUATOR_COMMA)
                     {
-                        vm_set_last_error("expecting token ',' after destination operand, got '%s'", vm_translate_token(assembler.tokens));
+                        vm_set_last_error("expecting token ',' after destination operand, got '%s'", vm_translate_token(&assembler.lexer.token));
                         return 1;
                     }
 
@@ -991,22 +1209,22 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
             opcode_3op->operand1_class = operand_classes[1];
             opcode_3op->operand2_class = operand_classes[2];
 
-            if(assembler.tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                assembler.tokens->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
+            if(assembler.lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR ||
+                assembler.lexer.token.token_type != TOKEN_PUNCTUATOR_SEMICOLON)
             {
-                vm_set_last_error("expecting ';' after instruction operands, got '%s'", vm_translate_token(assembler.tokens));
+                vm_set_last_error("expecting ';' after instruction operands, got '%s'", vm_translate_token(&assembler.lexer.token));
                 return 1;   
             }
 
             assembler.parsing_instruction = 0;
             vm_next_token(&assembler);
         }
-        else if(assembler.tokens->token_class == TOKEN_CLASS_IDENTIFIER)
+        else if(assembler.lexer.token.token_class == TOKEN_CLASS_IDENTIFIER)
         {
             assembler.parsing_instruction = 1;
             /* probably a label */
 
-            char *label = (char *)assembler.tokens->constant.ptr_constant;
+            char *label = (char *)assembler.lexer.token.constant.ptr_constant;
 
             if(vm_next_token(&assembler))
             {
@@ -1014,21 +1232,20 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                 return 1;
             }
 
-            if(assembler.tokens->token_class == TOKEN_CLASS_PUNCTUATOR)
+            if(assembler.lexer.token.token_class == TOKEN_CLASS_PUNCTUATOR)
             {
-                if(assembler.tokens->token_type == TOKEN_PUNCTUATOR_COLON)
+                if(assembler.lexer.token.token_type == TOKEN_PUNCTUATOR_COLON)
                 {
                     /* label_name: */
-
                     next_label = calloc(1, sizeof(struct code_label_t ));
-                    next_label->name = label;
+                    next_label->name = strdup(label);
                     next_label->offset = code_offset;
                     next_label->next = labels;
                     labels = next_label;
                 }
                 else
                 {
-                    vm_set_last_error("unexpected token '%s'", vm_translate_token(assembler.tokens));
+                    vm_set_last_error("unexpected token '%s'", vm_translate_token(&assembler.lexer.token));
                     return 1;
                 }
             }
@@ -1079,10 +1296,21 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                             if(!strcmp(next_label->name, (char *)opcode_3op->operands[operand_index].ptr_operand))
                             {
                                 /* we found the label, so patch the operand value of this instruction... */
+
+
+                                /* the label name was strdup'ed, so free it here... */
+                                free(opcode_3op->operands[operand_index].ptr_operand);
                                 opcode_3op->operands[operand_index].ptr_operand = code_buffer->code + code_buffer->code_start + next_label->offset;
                                 break;
                             }
+
                             next_label = next_label->next;
+                        }
+
+                        if(!next_label)
+                        {
+                            vm_set_last_error("label %s not found", (char *)opcode_3op->operands[operand_index].ptr_operand);
+                            return 1;
                         }
 
                         /* we also adjust the operand type for the correct one */
@@ -1095,6 +1323,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
                         to the constant area */
                         operand_size = strlen((char *)opcode_3op->operands[operand_index].ptr_operand) + 1;
                         memcpy(code_buffer->code + constant_offset, (char *)opcode_3op->operands[operand_index].ptr_operand, operand_size);
+                        free(opcode_3op->operands[operand_index].ptr_operand);
                         opcode_3op->operands[operand_index].ptr_operand = code_buffer->code + constant_offset;
                         constant_offset += operand_size;
                     }
@@ -1107,6 +1336,14 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tok
 
             opcode = vm_next_opcode();
         }
+    }
+
+    while(labels)
+    {
+        next_label = labels->next;
+        free(labels->name);
+        free(labels);
+        labels = next_label;
     }
 
     return 0;
@@ -1414,6 +1651,7 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
     char *lc_str1ptr = lc_str1;
     struct interactable_t *interactable;
     struct dat_attrib_t *attrib;
+    // struct scene_t *scene;
     
     vm_set_code_buffer(code_buffer);
     opcode = vm_next_opcode();
@@ -1485,22 +1723,22 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
                 memcpy(addresses[0], &value0, sizeof(uint64_t));
             break;
 
-            case VM_OPCODE_BE:
+            case VM_OPCODE_JE:
                 perform_jump = reg_status & VM_STATUS_FLAG_ZERO;
                 goto _test_jump;
-            case VM_OPCODE_BNE:
+            case VM_OPCODE_JNE:
                 perform_jump = (reg_status & VM_STATUS_FLAG_ZERO) == 0;
                 goto _test_jump;
-            case VM_OPCODE_BG:
+            case VM_OPCODE_JG:
                 perform_jump = (reg_status & (VM_STATUS_FLAG_ZERO | VM_STATUS_FLAG_NEGATIVE)) == 0;
                 goto _test_jump;
-            case VM_OPCODE_BL:
+            case VM_OPCODE_JL:
                 perform_jump = reg_status & VM_STATUS_FLAG_NEGATIVE;
                 goto _test_jump;
-            case VM_OPCODE_BGE:
+            case VM_OPCODE_JGE:
                 perform_jump = (reg_status & VM_STATUS_FLAG_ZERO) | (!(reg_status & VM_STATUS_FLAG_NEGATIVE));
                 goto _test_jump;
-            case VM_OPCODE_BLE:
+            case VM_OPCODE_JLE:
                 perform_jump = reg_status & (VM_STATUS_FLAG_NEGATIVE | VM_STATUS_FLAG_ZERO);
                 goto _test_jump;
             case VM_OPCODE_JMP:
@@ -1583,6 +1821,10 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
                 attrib = dat_get_attrib(interactable->attribs, *(char **)addresses[2]);
                 value0 = vm_alu_op(VM_ALU_OP_PASS, (uint64_t)&attrib->data, 0);
                 memcpy(addresses[0], &value0, sizeof(uint64_t));
+            break;
+
+            case VM_OPCODE_CHGSC:
+                set_scene(get_scene(*(char **)addresses[0]));
             break;
 
             case VM_OPCODE_IN:
@@ -1699,16 +1941,3 @@ void vm_free_tokens(struct token_t *tokens)
     }
 }
 
-/* ========================================================== */
-/* ========================================================== */
-/* ========================================================== */
-
-void vm_load_interactable_register(char *item, uint32_t reg)
-{
-
-}
-
-void vm_load_scene_register(void *scene)
-{
-
-}

@@ -34,7 +34,8 @@ struct dat_attrib_t
 struct dat_parser_t
 {
     uint32_t valid_null;
-    struct token_t *tokens;
+    struct vm_lexer_t lexer;
+    // struct token_t *tokens;
 }; 
 
 
@@ -50,7 +51,7 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src);
 
 struct dat_attrib_t *dat_parse(struct dat_parser_t *parser);
 
-struct dat_parser_t dat_init_parser(struct token_t *tokens);
+struct dat_parser_t dat_init_parser(const char *src);
 
 uint32_t dat_next_token(struct dat_parser_t *parser);
 

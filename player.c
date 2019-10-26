@@ -45,13 +45,14 @@ enum PLAYER_CMDS
     PLAYER_CMD_UNKNOWN,
 };
 
-struct token_t *p_in()
+char *p_in()
 {
     static char cmd_buffer[512];
     printf("--> ");
     fgets(cmd_buffer, sizeof(cmd_buffer), stdin);
+    return cmd_buffer;
     // cmd_buffer[strlen(cmd_buffer) - 1] = '\0';
-    return vm_lex_code(cmd_buffer);
+    // return vm_lex_code(cmd_buffer);
 }
 
 void p_next_cmd()
@@ -59,59 +60,60 @@ void p_next_cmd()
     // struct scene_t *current_scene;
     struct interactable_t *interactable;
     struct dat_attrib_t *attrib;
-    // struct dat_attrib_t *inspect;
-    struct token_t *tokens;
-    struct token_t *token;
+    struct vm_lexer_t lexer;
     uint32_t command = PLAYER_CMD_UNKNOWN;
+
     char *cmd_question;
     char *attrib_name;
-    
-    tokens = p_in();
-    token = tokens;
 
-    if(token->token_class == TOKEN_CLASS_IDENTIFIER)
+    vm_init_lexer(&lexer, p_in());
+    vm_lex_one_token(&lexer);
+    // printf("after lexing\n");
+
+    if(lexer.token.token_class == TOKEN_CLASS_IDENTIFIER)
     {
-        if(!strcmp(token->constant.ptr_constant, "inspect"))
+        if(!strcmp(lexer.token.constant.ptr_constant, "inspect"))
         {
             command = PLAYER_CMD_INSPECT;
             cmd_question = "Inspect what?";
         }
-        else if(!strcmp(token->constant.ptr_constant, "open"))
+        else if(!strcmp(lexer.token.constant.ptr_constant, "open"))
         {
             command = PLAYER_CMD_OPEN;
             cmd_question = "Open what?";
         }
-        else if(!strcmp(token->constant.ptr_constant, "take"))
+        else if(!strcmp(lexer.token.constant.ptr_constant, "take"))
         {
             command = PLAYER_CMD_TAKE;
             cmd_question = "Take what?";
         }
-        else if(!strcmp(token->constant.ptr_constant, "walk"))
+        else if(!strcmp(lexer.token.constant.ptr_constant, "walk"))
         {
             command = PLAYER_CMD_WALK;
-            cmd_question = "Walk to?";
+            cmd_question = "Walk through?";
         }
-        else if(!strcmp(token->constant.ptr_constant, "use"))
+        else if(!strcmp(lexer.token.constant.ptr_constant, "use"))
         {
             command = PLAYER_CMD_USE;
             cmd_question = "Use what?";
         }
 
+        // printf("lexed\n");
+
         if(command != PLAYER_CMD_UNKNOWN)
         {
-            token = token->next;
+            vm_lex_one_token(&lexer);
 
-            if(!token)
+            if(lexer.token.token_class == TOKEN_CLASS_UNKNOWN)
             {
-                vm_free_tokens(tokens);
                 printf("%s\n", cmd_question);
-                tokens = p_in();
-                token = tokens;
+                vm_init_lexer(&lexer, p_in());
+                vm_lex_one_token(&lexer);
             }
 
-            if(token->token_class == TOKEN_CLASS_IDENTIFIER)
+            if(lexer.token.token_class == TOKEN_CLASS_IDENTIFIER)
             {
-                interactable = get_interactable(get_current_scene(), token->constant.ptr_constant);
+                interactable = get_interactable(get_current_scene(), lexer.token.constant.ptr_constant);
 
                 switch(command)
                 {
@@ -139,7 +141,7 @@ void p_next_cmd()
                 if(interactable)
                 {
                     attrib = dat_get_attrib(interactable->attribs, attrib_name);
-
+        
                     if(attrib)
                     {
                         if(attrib->type == DAT_ATTRIB_TYPE_STRING)

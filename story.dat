@@ -1,22 +1,35 @@
 {
-    scene = "test";
+    scene = "scene0";
 
     description = "It's a room. You have entered it.";
     
     interactables = {
         door = {
             inspect = (
-                ldsc "test";
+                ldsc "scene0";
                 ldi ri0, "door";
                 ldia r0, ri0, "is_locked";
 
                 cmp [r0], 0;
-                be _is_unlocked;
+                je _is_unlocked;
                 print "Door locked!\n";
                 ret 0;
 
                 _is_unlocked:
                 print "Door unlocked!\n";
+            );
+
+            walk = (
+                ldsc "scene0";
+                ldi ri0, "door";
+                ldia r0, ri0, "is_locked";
+                cmp [r0], 0;
+                je _go_through;
+                print "The door is locked.\n";
+                ret 0;
+
+                _go_through:
+                chgsc "scene1";
             );
 
             is_locked = 1;
@@ -26,11 +39,11 @@
             inspect = "It's a big, red button";
 
             use = (
-                ldsc "test";
+                ldsc "scene0";
                 ldi ri0, "door";
                 ldia r0, ri0, "is_locked";
                 cmp [r0], 0;
-                be _already_pressed;
+                je _already_pressed;
                 mov [r0], 0;
                 print "You press the red button. You hear a loud, metallic click behind you.\n";
                 ret 0;
@@ -51,19 +64,19 @@
                 print "FUCKING\n";
                 dec r0;
                 cmp r0, 0;
-                bne again;
+                jne again;
                 print "FLOOOOOOR!!!!!\n";
             );
         };
 
         chest = {
             inspect = (
-                ldsc "test";
+                ldsc "scene0";
                 ldi ri0, "chest";
                 ldia r0, ri0, "chest_open";
                 
                 cmp [r0], 0;
-                bne _chest_open;
+                jne _chest_open;
                 print "Chest locked :(\n";
                 ret 0;
 
@@ -72,7 +85,7 @@
             );
 
             open = (
-                ldsc "test";
+                ldsc "scene0";
                 ldi ri0, "chest";
                 ldia r0, ri0, "chest_open";
                 mov [r0], 1;
@@ -95,60 +108,15 @@
             };
         };
     };
+}
+{
+    scene = "scene1";
 
-    lobster = (
-        print "You shall not proceed onwards, son. Your jorney has ended, and you have not achieved your goals. How do you feel about it?\n";
-        print "(1\)FUCK!\n";
-        print "(2\)SHIT!\n";
-        print "(3\)ASS!\n";
+    description = "This is another room. It's dark and its air is murky. The only source of light is a crack in the ceiling. Looking up you realize how tall the ceiling is. A loud noise startles you, making you turn around to the door you just walked through. For some reason the doorway caved in. You're trapped.\n";
 
-        try_again:
-        in r0;
-        cmps r0, "FUCK!";
-        be exit;
-
-        lcstr r0;
-        cmps r0, "fuck!";
-        be louder;
-        cmpslc r0, "fuck";
-        be louder;
-
-        cmpslc r0, "shit!";
-        be nope_not_that;
-        cmpslc r0, "shit";
-        be nope_not_that;
-        cmpslc r0, "ass!";
-        be nope_not_that;
-        cmpslc r0, "ass";
-        be nope_not_that;
-        jmp test_numbers;
-
-
-        louder:
-        print "LOUDER!\n";
-        jmp try_again;
-
-        nope_not_that:
-        print "Nope! That's not the rigth answer!\n";
-        jmp try_again;
-
-
-        test_numbers:
-        cmps r0, "1";
-        be wtf_number;
-        cmps r0, "2";
-        be wtf_number;
-        cmps r0, "3";
-        be wtf_number;
-        jmp nope_not_that;
-
-
-        wtf_number:
-        print "What the hell is this?! A number?! Do I look like a fucking calculator to you?! Gimme the right answer!\n";
-        jmp try_again;
-
-        exit:
-        print "that's right!\n\n\n";
-        ret 0;
-    );
+    interactables = {
+        door = {
+            walk = "You dart your eyes around the caved in passage, but you find no way to get through it.\n"; 
+        };
+    };
 }

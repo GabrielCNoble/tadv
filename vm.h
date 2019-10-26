@@ -4,6 +4,11 @@
 #include <stdint.h>
 
 
+#define VM_OPCODE_BITS 6
+#define VM_OPCODE_OPERAND_COUNT_BITS 2
+#define VM_OPCODE_OPERAND_CLASS_BITS 3
+
+
 enum VM_OPCODES
 {
     /* 
@@ -122,42 +127,44 @@ enum VM_OPCODES
     /*
         be: branch when equal (Z = 1)
     */
-    VM_OPCODE_BE,
+    VM_OPCODE_JE,
 
     /*
         bne: branch when not equal (Z = 0)
     */
-    VM_OPCODE_BNE,
+    VM_OPCODE_JNE,
 
     /*
         bp: branch when greater than (Z = 0 & N = 0)
     */
-    VM_OPCODE_BG,
+    VM_OPCODE_JG,
 
     /*
         bn: branch when lesser than (N = 1)
     */
-    VM_OPCODE_BL,
+    VM_OPCODE_JL,
 
     /*
         bge: branch when greater than or equal to (N = 0 | Z = 1)
     */
-    VM_OPCODE_BGE,
+    VM_OPCODE_JGE,
 
     /* 
         ble : branch when lesser than or equal to (N = 1 | Z = 1) 
     */
-    VM_OPCODE_BLE,
+    VM_OPCODE_JLE,
 
 
     VM_OPCODE_IN,
 
     VM_OPCODE_RET,
+    // VM_OPCODE_CALL,
 
 
     VM_OPCODE_FCRSH,
     
     VM_OPCODE_LAST,
+    VM_OPCODE_MAX = (1 << VM_OPCODE_BITS) - 1
 };
 
 enum VM_OPCODE_OPERAND_CLASS
@@ -240,13 +247,12 @@ struct token_t
     uint32_t token_type;
 };
 
-#define OPCODE_FIELDS           \
-unsigned opcode : 6;            \
-unsigned operand_count : 2;     \
-unsigned width : 2;             \
-unsigned operand0_class : 3;    \
-unsigned operand1_class : 3;    \
-unsigned operand2_class : 3; 
+#define OPCODE_FIELDS                                                   \
+unsigned opcode : VM_OPCODE_BITS;                                       \
+unsigned operand_count : VM_OPCODE_OPERAND_COUNT_BITS;                  \
+unsigned operand0_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
+unsigned operand1_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
+unsigned operand2_class : VM_OPCODE_OPERAND_CLASS_BITS; 
 
 struct opcode_t
 {
@@ -290,17 +296,46 @@ struct code_label_t
     uint32_t offset;
 };
 
+
+#define OPCODE_INFO_T_FIELDS            \
+    char name[8];                       \
+    uint8_t offset;                     \
+    uint8_t operand_count;              \
+    uint16_t allowed_operand_types[3]  
+
+struct opcode_info_t
+{
+    char name[8];                       
+    uint8_t offset;                     
+    uint8_t operand_count;              
+    uint16_t allowed_operand_types[3];  
+    void (*function)(void *operand0, void *operand1, void *operand2);
+};
+
+struct vm_lexer_t
+{
+    const char *src;
+    uint32_t prev_offset;
+    uint32_t offset;
+    struct token_t token;
+    char token_str[512];
+};
+
 void vm_init();
 
-struct token_t *vm_lex_code(const char *src);
+// struct token_t *vm_lex_code(const char *src);
+
+uint32_t vm_lex_one_token(struct vm_lexer_t *lexer);
+
+void vm_init_lexer(struct vm_lexer_t *lexer, const char *src);
 
 void vm_print_tokens(struct token_t *tokens);
 
 char *vm_translate_token(struct token_t *token);
 
-uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src);
+// uint32_t vm_assemble_code_str(struct code_buffer_t *code_buffer, const char *src);
 
-uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, struct token_t *tokens);
+uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src);
 
 void vm_dissasemble_code(struct code_buffer_t *code_buffer);
 
@@ -326,12 +361,5 @@ void vm_free_token(struct token_t *token);
 
 void vm_free_tokens(struct token_t *tokens);
 
-/* ========================================================== */
-/* ========================================================== */
-/* ========================================================== */
-
-void vm_load_interactable_register(char *item, uint32_t reg);
-
-void vm_load_scene_register(void *scene);
 
 #endif

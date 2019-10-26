@@ -121,6 +121,8 @@ struct interactable_t *get_interactable(struct scene_t *scene, char *name)
 
         interactable = interactable->next;
     }
+
+    // printf("found\n");
     
     return interactable;
 }
@@ -143,7 +145,22 @@ struct scene_t *get_scene(char *name)
 
 void set_scene(struct scene_t *scene)
 {
+    struct dat_attrib_t *description;
     current_scene = scene;
+
+    description = dat_get_attrib(scene->attribs, "description");
+
+    if(description)
+    {
+        if(description->type == DAT_ATTRIB_TYPE_STRING)
+        {
+            printf("%s\n", description->data.str_data);
+        }
+        else if(description->type == DAT_ATTRIB_TYPE_CODE)
+        {
+            vm_execute_code(&description->data.code);
+        }
+    }
 }
 struct scene_t *get_current_scene()
 {

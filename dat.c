@@ -4,23 +4,23 @@
 #include <string.h>
 #include <stdlib.h>
 
-struct dat_attrib_t *dat_get_attrib_recursive(struct dat_attrib_t *attribs, struct token_t *token)
+struct dat_attrib_t *dat_get_attrib_recursive(struct dat_attrib_t *attribs, struct vm_lexer_t *lexer)
 {
-    if(token->token_class == TOKEN_CLASS_IDENTIFIER)
+    if(lexer->token.token_class == TOKEN_CLASS_IDENTIFIER)
     {
         while(attribs)
         {
-            if(!strcmp((char *)token->constant.ptr_constant, attribs->name))
+            if(!strcmp((char *)lexer->token.constant.ptr_constant, attribs->name))
             {
-                token = token->next;
+                vm_lex_one_token(lexer);
 
-                if(token && token->token_class == TOKEN_CLASS_PUNCTUATOR && 
-                   token->token_type == TOKEN_PUNCTUATOR_DOT)
+                if(lexer->token.token_class == TOKEN_CLASS_PUNCTUATOR && 
+                   lexer->token.token_type == TOKEN_PUNCTUATOR_DOT)
                 {
                     if(attribs->type == DAT_ATTRIB_TYPE_STRUCT)
                     {
-                        token = token->next;
-                        return dat_get_attrib_recursive(attribs->data.attrib, token);
+                        vm_lex_one_token(lexer);
+                        return dat_get_attrib_recursive(attribs->data.attrib, lexer);
                     }
                 }
 
@@ -35,21 +35,16 @@ struct dat_attrib_t *dat_get_attrib_recursive(struct dat_attrib_t *attribs, stru
 
 struct dat_attrib_t *dat_get_attrib(struct dat_attrib_t *attribs, const char *name)
 {
-    struct token_t *tokens;
-    struct token_t *token;
+    // struct token_t *tokens;
+    // struct token_t *token;
     struct dat_attrib_t *ret = NULL;
+    struct vm_lexer_t lexer;
 
     if(attribs)
     {
-        tokens = vm_lex_code(name);
-        ret = dat_get_attrib_recursive(attribs, tokens);
-    
-        while(tokens)
-        {
-            token = tokens->next;
-            vm_free_token(tokens);
-            tokens = token;
-        }
+        vm_init_lexer(&lexer, name);
+        vm_lex_one_token(&lexer);
+        ret = dat_get_attrib_recursive(attribs, &lexer);
     }
 
     return ret;
@@ -85,28 +80,30 @@ void dat_free_attribs(struct dat_attrib_t *attribs)
  
 
 
-struct dat_parser_t dat_init_parser(struct token_t *tokens)
+struct dat_parser_t dat_init_parser(const char *src)
 {
     struct dat_parser_t parser;
 
-    parser.tokens = tokens;
+    // parser.tokens = tokens;
     parser.valid_null = 1;
+    vm_init_lexer(&parser.lexer, src);
 
     return parser;
 }
 
 uint32_t dat_next_token(struct dat_parser_t *parser)
 {
-    parser->tokens = parser->tokens->next;
-    return !(parser->tokens || parser->valid_null);
+    // parser->tokens = parser->tokens->next;
+    vm_lex_one_token(&parser->lexer);
+    return parser->lexer.token.token_class == TOKEN_CLASS_UNKNOWN && !parser->valid_null;
 }
 
 struct dat_attrib_t *dat_parse_dat_string(const char *src)
 {
     struct dat_attrib_t *attribs = NULL;
     struct dat_attrib_t *attrib = NULL;
-    struct token_t *tokens;
-    struct token_t *token;
+    // struct token_t *tokens;
+    // struct token_t *token;
     const char *error;
 
     struct dat_parser_t parser;
@@ -114,10 +111,11 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
     // tokens = vm_lex_code(src);
     // token = tokens;
 
-    parser = dat_init_parser(vm_lex_code(src));
+    // parser = dat_init_parser(vm_lex_code(src));
+    parser = dat_init_parser(src);
+    dat_next_token(&parser);
 
-
-    while(parser.tokens)
+    while(parser.lexer.token.token_class != TOKEN_CLASS_UNKNOWN)
     {
         attrib = calloc(1, sizeof(struct dat_attrib_t ));
         attrib->type = DAT_ATTRIB_TYPE_STRUCT;
@@ -140,12 +138,12 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
         attribs = attrib;
     }
 
-    while(tokens)
-    {
-        token = tokens->next;
-        vm_free_token(tokens);
-        tokens = token;
-    }
+    // while(tokens)
+    // {
+    //     token = tokens->next;
+    //     vm_free_token(tokens);
+    //     tokens = token;
+    // }
 
     return attribs;
 }
@@ -156,22 +154,26 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
     struct dat_attrib_t *attrib = NULL;
     struct dat_attrib_t *attribs = NULL;
     // struct token_t *token;
-    struct token_t *before_code;
-    struct token_t *prev_token;
-    struct token_t *code;
+    // struct token_t *before_code;
+    // struct token_t *prev_token;
+    uint32_t code_start_offset;
+    char *code;
+
+    // free()
+    // struct token_t *code;
     // char *attrib_name;
     uint32_t has_opening_brace = 0;
     
 
-    if(!parser->tokens)
+    if(parser->lexer.token.token_class == TOKEN_CLASS_UNKNOWN)
     {
         return NULL;
     }
 
-    if(parser->tokens->token_class != TOKEN_CLASS_IDENTIFIER)
+    if(parser->lexer.token.token_class != TOKEN_CLASS_IDENTIFIER)
     {
-        if(parser->tokens->token_class == TOKEN_CLASS_PUNCTUATOR &&
-           parser->tokens->token_type == TOKEN_PUNCTUATOR_OBRACE)
+        if(parser->lexer.token.token_class == TOKEN_CLASS_PUNCTUATOR &&
+           parser->lexer.token.token_type == TOKEN_PUNCTUATOR_OBRACE)
         {
             // token = token->next;
             if(dat_next_token(parser))
@@ -185,25 +187,25 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
         else
         {
             // printf("error: unexpected token at the beginning of a block attribute\n");
-            vm_set_last_error("error: expecting '{' or identifier, got '%s'", vm_translate_token(parser->tokens)); 
+            vm_set_last_error("error: expecting '{' or identifier, got '%s'", vm_translate_token(&parser->lexer.token)); 
             return NULL;
         }
     }
 
-    while(parser->tokens && (parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR || 
-          parser->tokens->token_type != TOKEN_PUNCTUATOR_CBRACE))
+    while(parser->lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR || 
+          parser->lexer.token.token_type != TOKEN_PUNCTUATOR_CBRACE)
     {
         parser->valid_null = 0;
 
-        if(parser->tokens->token_class != TOKEN_CLASS_IDENTIFIER)
+        if(parser->lexer.token.token_class != TOKEN_CLASS_IDENTIFIER)
         {
             // printf("error: expected attribute identifier\n");
-            vm_set_last_error("error: expecting attribute identifier, got '%s'", vm_translate_token(parser->tokens));
+            vm_set_last_error("error: expecting attribute identifier, got '%s'", vm_translate_token(&parser->lexer.token));
             goto _free_attribs;
         }
 
         attrib = calloc(1, sizeof(struct dat_attrib_t));
-        attrib->name = strdup((char *)parser->tokens->constant.ptr_constant);
+        attrib->name = strdup((char *)parser->lexer.token.constant.ptr_constant);
         attrib->next = attribs;
         attribs = attrib;
 
@@ -213,10 +215,10 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
             goto _free_attribs;
         }
 
-        if(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-            parser->tokens->token_type != TOKEN_PUNCTUATOR_EQUAL)
+        if(parser->lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR ||
+           parser->lexer.token.token_type != TOKEN_PUNCTUATOR_EQUAL)
         {
-            vm_set_last_error("error: expecting a '=' after attribute '%s', got '%s'", attrib->name, vm_translate_token(parser->tokens));
+            vm_set_last_error("error: expecting a '=' after attribute '%s', got '%s'", attrib->name, vm_translate_token(&parser->lexer.token));
             goto _free_attribs;
         }
 
@@ -227,11 +229,11 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
         }
 
 
-        switch(parser->tokens->token_class)
+        switch(parser->lexer.token.token_class)
         {
             case TOKEN_CLASS_INTEGER_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_INT;
-                attrib->data.int_data = parser->tokens->constant.uint_constant;
+                attrib->data.int_data = parser->lexer.token.constant.uint_constant;
 
                 if(dat_next_token(parser))
                 {
@@ -242,7 +244,7 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
 
             case TOKEN_CLASS_FLOAT_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_FLOAT;
-                attrib->data.flt_data = parser->tokens->constant.flt_constant;
+                attrib->data.flt_data = parser->lexer.token.constant.flt_constant;
 
                 if(dat_next_token(parser))
                 {
@@ -253,7 +255,7 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
 
             case TOKEN_CLASS_STRING_CONSTANT:
                 attrib->type = DAT_ATTRIB_TYPE_STRING;
-                attrib->data.str_data = (char *)parser->tokens->constant.ptr_constant;
+                attrib->data.str_data = strdup((char *)parser->lexer.token.constant.ptr_constant);
 
                 if(dat_next_token(parser))
                 {
@@ -263,7 +265,7 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
             break;
 
             case TOKEN_CLASS_PUNCTUATOR:
-                if(parser->tokens->token_type == TOKEN_PUNCTUATOR_OBRACE)
+                if(parser->lexer.token.token_type == TOKEN_PUNCTUATOR_OBRACE)
                 {
                     attrib->type = DAT_ATTRIB_TYPE_STRUCT;
                     attrib->data.attrib = dat_parse(parser);
@@ -273,10 +275,9 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
                     }
                     parser->valid_null = 0;
                 }
-                else if(parser->tokens->token_type == TOKEN_PUNCTUATOR_OPARENTHESIS)
+                else if(parser->lexer.token.token_type == TOKEN_PUNCTUATOR_OPARENTHESIS)
                 {
                     attrib->type = DAT_ATTRIB_TYPE_CODE;
-                    before_code = parser->tokens;
 
                     if(dat_next_token(parser))
                     {
@@ -284,12 +285,12 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
                         goto _free_attribs;
                     }
 
-                    code = parser->tokens;
+                    code_start_offset = parser->lexer.prev_offset;
 
-                    while(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-                          parser->tokens->token_type != TOKEN_PUNCTUATOR_CPARENTHESIS)
+                    while(parser->lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR ||
+                          parser->lexer.token.token_type != TOKEN_PUNCTUATOR_CPARENTHESIS)
                     {
-                        prev_token = parser->tokens;
+                        // prev_token = parser->lexer.token;
 
                         if(dat_next_token(parser))
                         {
@@ -298,14 +299,19 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
                         }
                     }
 
-                    prev_token->next = NULL;
-                    before_code->next = parser->tokens;
+                    code = calloc(1, parser->lexer.prev_offset - code_start_offset + 1);
+                    strncpy(code, parser->lexer.src + code_start_offset, parser->lexer.prev_offset - code_start_offset);
+                    code[parser->lexer.prev_offset - code_start_offset] = '\0';
+
+                    // printf("(%s)\n", code);
 
                     if(vm_assemble_code(&attrib->data.code, code))
                     {
                         vm_set_last_error("error: error while compiling code for attribute '%s'", attrib->name);
                         goto _free_attribs;
                     }
+
+                    free(code);
 
                     if(dat_next_token(parser))
                     {
@@ -331,10 +337,10 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
         //     goto _free_attribs;
         // }
 
-        if(parser->tokens->token_class != TOKEN_CLASS_PUNCTUATOR ||
-           parser->tokens->token_type != TOKEN_PUNCTUATOR_SEMICOLON)
+        if(parser->lexer.token.token_class != TOKEN_CLASS_PUNCTUATOR ||
+           parser->lexer.token.token_type != TOKEN_PUNCTUATOR_SEMICOLON)
         {
-            vm_set_last_error("error: expecting token ';' after definition of attribute '%s', got '%s'\n", attrib->name, vm_translate_token(parser->tokens));
+            vm_set_last_error("error: expecting token ';' after definition of attribute '%s', got '%s'\n", attrib->name, vm_translate_token(&parser->lexer.token));
             goto _free_attribs;
         }
 
@@ -343,7 +349,7 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
     }
 
     /* we got here, so either token is null, or is a '}' */
-    if(!parser->tokens)
+    if(parser->lexer.token.token_class == TOKEN_CLASS_UNKNOWN)
     {
         if(has_opening_brace)
         {
