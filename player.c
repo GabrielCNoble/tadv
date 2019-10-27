@@ -46,6 +46,7 @@ enum PLAYER_CMDS
     PLAYER_CMD_PET,
     PLAYER_CMD_DIE,
     PLAYER_CMD_EXIT,
+    PLAYER_CMD_HELP,
     PLAYER_CMD_UNKNOWN,
 };
 
@@ -114,6 +115,10 @@ void p_next_cmd()
         {
             command = PLAYER_CMD_EXIT;
         }
+        else if(!strcmp(lexer.token.constant.ptr_constant, "help"))
+        {
+            command = PLAYER_CMD_HELP;
+        }
 
         // printf("lexed\n");
 
@@ -142,6 +147,18 @@ void p_next_cmd()
                 case PLAYER_CMD_EXIT:
                     printf("You will always be trapped by prisons. Some are just harder to see.\n");
                     exit(0);
+                break;
+
+                case PLAYER_CMD_HELP:
+                    printf("***************************************\n");
+                    printf("Available commands:\n");
+                    printf("---------------------------------------\n");
+                    printf("help: Enters this menu.\n");
+                    printf("open: Opens a chosen object.\n");
+                    printf("take: Takes a chosen object.\n");
+                    printf("inspect: Examines a chosen object.\n");
+                    printf("use: Use a chosen object.\n");
+                    printf("quit: Quits the game.\n");
                 break;
 
                 default:
