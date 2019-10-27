@@ -1,0 +1,528 @@
+{
+    scene = "intro";
+
+    description = (
+        print "Welcome to the Lovecraft escape room!\nThe universe is cold and inescapable, but maybe you can escape this room.\n\n";
+        chgsc "main";
+    );
+}
+{
+    scene = "main";
+
+    description = "You see a door, an altar, a box, and a summoning circle\n"; 
+
+    interactables = {
+
+        floor = {
+            inspect = (
+                ldsc "main";
+                ldi ri0, "floor";
+                ldia r0, ri0, "look_count";
+
+                cmp [r0], 0;
+                je _floor_0;
+                cmp [r0], 1;
+                je _floor_1;
+                cmp [r0], 2;
+                je _floor_2;
+                cmp [r0], 3;
+                je _floor_3;
+                cmp [r0], 4;
+                je _floor_4;
+                jmp _floor_else;
+
+
+                _floor_0:
+                print "You lean down and examine the floor. It appears to be made out of floor.\n";
+                jmp _got_done_the_did;
+
+                _floor_1:
+                print "You take a closer look at the floor. A smooth stone texutre covers the majority of it.\n";
+                jmp _got_done_the_did;
+
+                _floor_2:
+                print "You examine the floor further. You find a small crack near the door.\n";
+                jmp _got_done_the_did;
+
+                _floor_3:
+                print "You examine the floor further. Surely this crack must lead to an escape route. It doesn't. The trail goes cold...\n";
+                jmp _got_done_the_did;
+
+                _floor_4:
+                print "You examine the floor further. Aha! Something new! A spot of grout neaer the side of the wall! Nothing interesting though.\n";
+                jmp _got_done_the_did;
+
+                _floor_else:
+                print "You really need some new hobbies.\n";
+                _got_done_the_did:
+                inc [r0];
+                ret 0;
+            );
+
+            look_count = 0;
+        };
+
+        circle = {
+            inspect = "A chalk circle lies on the ground. 'Just add candles!' say the instructions on the altar.";
+
+            use = (
+                ldsc "main";
+                ldi ri0, "circle";
+                ldia r0, ri0, "has_candle";
+                cmp [r0], 1;
+                je _has_candle;
+                print "The summoning circle lies dormant. It requires candles to perform a ritual.\n";
+                ret 0;
+
+
+                _has_candle:
+
+                print "Summon what?\n";
+                print "You may summon:\n";
+                print "Cthulu the Inconceivable\n";
+                print "Exomal the Wise\n";
+                print "Cat\n";
+                in r0;
+
+                lcstr r0;
+                cmps r0, "cat";
+                je _is_cat;
+                cmps r0, "exomal";
+                je _is_exomal;
+                cmps r0, "exomal the wise";
+                je _is_exomal;
+                cmps r0, "cthulu";
+                je _is_cthulu;
+                cmps r0, "cthulu the inconceivable";
+                je _is_cthulu;
+
+                _is_cat:
+                ldi ri0, "cat";
+                ldia r0, ri0, "is_summoned";
+                mov [r0], 1;
+                print "You summon the cat. It meows at you petulently.\n";
+                ldia r0, ri0, "has_key";
+                cmp [r0], 0;
+                je _no_kitty_key;
+                print "There is a small key around its neck.\n";
+                _no_kitty_key:
+                ret 0;
+
+                _is_exomal:
+                print "You summon Exomal the Wise.\nThey appear to you as a mass of quivering, amorphous tissue and bid you to speak.\n";
+
+                _exomal_loop:
+                    print "\n'Speak, summoner. What is it you wish to discuss?\n";
+                    print "(1)What's the weather like outside of this room?\n";
+                    print "(2)What is the meaning of life?\n";
+                    print "(3)Who are you?\n";
+                    print "(4)End discussion.\n";
+                    in r0;
+
+                    cmps r0, "1";
+                    je _weather;
+                    cmpslc r0, "weather";
+                    je _weather;
+
+                    cmps r0, "2";
+                    je _life;
+                    cmps r0, "42";
+                    je _life;
+                    cmpslc r0, "life";
+                    je _life;
+                    cmpslc r0, "meaning of life";
+                    je _life;
+
+                    cmps r0, "3";
+                    je _the_who;
+                    cmpslc r0, "who";
+                    je _the_who;
+                    cmpslc r0, "who are you";
+                    je _the_who;
+                    cmpslc r0, "?";
+                    je _the_who;
+
+                    cmps r0, "4";
+                    je _exomal_loop_end;
+                    cmpslc r0, "end";
+                    je _exomal_loop_end;
+
+                    jmp _exomal_loop;
+
+
+                    _weather:
+                        print "'The weather? The same as always. Drab and hellish.'\n'I must say, that was not the question I expected.'\n";
+                        print "(1)Apologise\n"; 
+                        print "(2)Defend your question\n";
+                        in r0;
+                        
+                        cmps r0, "1";
+                        je _weather_sorry;
+                        cmpslc r0, "apologise";
+                        je _weather_sorry;
+                        jmp _weather_defensive;
+
+
+                        _weather_sorry:
+                        print "'No apology necessary. It is nice to get such a quaint question.'\n";
+                        jmp _exomal_loop;
+
+                        _weather_defensive:
+                        print "'No need to get defensive. You asked a question, and that question was answered.'\n";
+                        jmp _exomal_loop;
+
+                    _life:
+                        print "'I am flattered that you think so highly of me, that you would believe me to know such a question.'\n";
+                        print "'You really ought to be asking a better question if you wish to have an answer.'\n";
+                        jmp _exomal_loop;
+
+                    _the_who:
+                        print "The being shifts.\n";
+                        print "'I am... many things. Above all, I am a keeper of knowledge.";
+                        print " Your questions, however, are limited by that which you are permitted to ask.\n";
+                        print "(1)What do you mean 'permitted'?\n";
+                        print "(2)What am I permitted to ask?\n";
+                        print "(3)Why can't I ask anything?\n";
+                        print "(4)Nod and end the conversation.\n";
+
+                        in r0;
+                        cmps r0, "4";
+                        je _exomal_loop_end;
+                        cmpslc r0, "end";
+                        je _exomal_loop_end;
+
+                        print "'I am a mere facimile, and your interaction with this world itself is limited.\n";
+                        print "I can force you to ask certain questions if I feel, yet my understanding of those questions is limited.\n";
+                        print "As an example, ask me where I come from.\n";
+
+                        print "--> ";
+                        in r0;
+                        print "You ask Exomal where he came from.\n";
+                        print "'You see? Neither of us is truly in control here.'\n";
+                        print "'I know of this world, yet is that knowledge really useful?'\n";
+                        print "'Perhaps you have your answers now. Perhaps not. It matters not.\n";
+
+                    _exomal_loop_end:
+                
+                    print "Exomal nods. Or... How does he nod? Somehow, you understand his intent.\n";
+                    print "He disappears back to whatever place he normally resides.\n";
+                    ret 0;
+
+                _is_cthulu:
+                    print "You fail to conceive of Cthulu. As a result, you also cannot conceive of how to summon it.\n";
+                    ret 0;
+            );
+
+            has_candle = 0;
+        };
+
+        key = {
+
+            inspect = (
+                ldsc "main";
+                ldi ri0, "key";
+                ldia r0, ri0, "is_taken";
+                ldi ri0, "cat";
+                ldia r1, ri0, "is_summoned";
+
+                cmp [r1], 0;
+                je _not_did_the_summoning;
+
+                cmp [r0], 1;
+                je _did_the_taking;
+                print "The key shines in the light. Could this mean salvation?\n";
+                _did_the_taking:
+                _not_did_the_summoning:
+                ret 0;
+            );
+
+            take = (
+                ldsc "main";
+                ldi ri0, "cat";
+                ldia r0, ri0, "is_summoned";
+                ldia r1, ri0, "has_key";
+
+                cmp [r0], 0;
+                je _not_summoned;
+                cmp [r1], 0;
+                je _no_key;
+                mov [r1], 0;
+                ldi ri0, "key";
+                ldia r0, ri0, "is_taken";
+                mov [r0], 1;
+                print "You take the key from around the cat's neck.\nIt meows in understanding.\n";
+
+                _no_key:
+                _not_summoned:
+                ret 0;
+            );
+
+            use = (
+                ldsc "main";
+                ldi ri0, "key";
+                ldia r0, ri0, "is_taken";
+                ldia r1, ri0, "is_used";
+                cmp [r0], 0;
+                je _not_taken;
+                cmp [r1], 1;
+                je _is_used;
+
+                mov [r1], 1;
+                ldi ri0, "door";
+                ldia r0, ri0, "is_locked";
+                mov [r0], 0;
+                print "It's a challenge, but the key eventually turns in the rusty lock.\n";
+                ret 0;
+
+                _is_used:
+                print "You don't have key!\n";
+
+                _not_taken:
+                ret 0;
+            );
+
+            is_taken = 0;
+            is_used = 0;
+        };
+
+        door = {
+
+            inspect = (
+                ldsc "main";
+                ldi ri0, "door";
+                ldia r0, ri0, "is_locked";
+                cmp [r0], 0;
+                je _is_unlocked;
+
+                print "The door's rusty lock taunts you, preventing you from leaving.\n";
+                ret 0;
+
+                _is_unlocked:
+                print "The door's lock lies at your feet. Are you ready to leave the quiet stability of what you know?\n";
+            );
+
+            open = (
+                ldsc "main";
+                ldi ri0, "door";
+                ldia r0, ri0, "is_locked";
+                cmp [r0], 1;
+                je _still_locked;
+                print "You've escaped the room! But you can never escape your own mind.\n";
+                exit;
+
+                _still_locked:
+                ret 0;
+            );
+
+            is_locked = 1;
+        };
+
+        cat = {
+
+            inspect = (
+                ldsc "main";
+                ldi ri0, "cat";
+                ldia r0, ri0, "has_key";
+                ldia r1, ri0, "is_summoned";
+                cmp [r1], 0;
+                je _key_taken;
+
+                print "The fluffy gray cat looks at you curiously. Its name is Nimbus.\n";
+                cmp [r0], 0;
+                je _key_taken;
+                print "A small key hangs around the cat's neck.\n";
+                _key_taken:
+                ret 0;
+            );
+
+            pet = (
+                ldsc "main";
+                ldi ri0, "cat";
+                ldia r0, ri0, "pet_count";
+                ldia r1, ri0, "is_summoned";
+
+                cmp [r1], 0;
+                je _is_not_summoned;
+
+                cmp [r0], 0;
+                je _pet_0;
+                cmp [r0], 1;
+                je _pet_1;
+                cmp [r0], 2;
+                je _pet_2;
+                cmp [r0], 3;
+                je _pet_3;
+                cmp [r0], 4;
+                je _pet_4;
+                cmp [r0], 5;
+                je _pet_5;
+                cmp [r0], 6;
+                je _pet_6;
+                cmp [r0], 7;
+                je _pet_7;
+                cmp [r0], 8;
+                je _pet_8;
+                cmp [r0], 9;
+                je _pet_9;
+                cmp [r0], 10;
+                je _pet_10;
+                cmp [r0], 11;
+                je _pet_11;
+                cmp [r0], 12;
+                je _pet_12;
+                print "You pet the cat's belly. Its purring is a quiet background noise.\n";
+                ret 0;
+
+                _pet_0:
+                print "You pet the cat. It meows in appreciation.\n";
+                jmp _did_the_pet;
+
+                _pet_1:
+                print "You pet the cat again. It purrs and relaxes into your hand.\n";
+                jmp _did_the_pet;
+
+                _pet_2:
+                print "You pet the cat. It purrs and lies down.\n";
+                jmp _did_the_pet;
+
+                _pet_3:
+                print "You pet the cat. Its eyes close and it relaxes further.\n";
+                jmp _did_the_pet;
+                
+                _pet_4:
+                print "You pet the cat. It rolls over to let you rub its belly.\n";
+                jmp _did_the_pet;
+
+                _pet_5:
+                print "You pet the cat's belly. It purrs in appreciation.\n";
+                jmp _did_the_pet;
+
+                _pet_6:
+                print "You pet the cat's belly. It stretches to give you a better reach, then purrs.\n";
+                jmp _did_the_pet;
+
+                _pet_7:
+                print "You pet the cat's belly. Its eyes close, and it seems to be close to falling asleep.\n";
+                jmp _did_the_pet;
+
+                _pet_8:
+                print "You pet the cat's belly. It lazily bats its paws around. It seems to be dreaming.\n";
+                jmp _did_the_pet;
+
+                _pet_9:
+                print "You pet the cat's belly. It stirs, then lets out a soft meow.\n";
+                jmp _did_the_pet;
+
+                _pet_10:
+                print "You pet the cat's belly. It reaches out its paws toward you.\n";
+                jmp _did_the_pet;
+
+                _pet_11:
+                print "You pet the cat's belly. You're feeling a bit sleepy yourself now.\nYou feel incredibly relaxed.\n";
+                jmp _did_the_pet;
+
+                _pet_12:
+                print "You pet the cat's belly. You've enjoyed your time together.\n";
+                jmp _did_the_pet;
+
+                _did_the_pet:
+                inc [r0];
+                _is_not_summoned:
+                ret 0;
+            );  
+
+            is_summoned = 0;
+            has_key = 1;
+            pet_count = 0;
+        };
+
+        box = {
+            inspect = (
+                ldsc "main";
+                ldi ri0, "box";
+                ldia r0, ri0, "is_open";
+                cmp [r0], 1;
+                je _already_open;
+                print "There is a small cardboard box. It would be so easy to open it...\n";
+                ret 0;
+                _already_open:
+                print "The box lies open in front of you. Countless candles line the sides.\n";
+            );
+
+            open = (
+                ldsc "main";
+                ldi ri0, "box";
+                ldia r0, ri0, "is_open";
+                cmp [r0], 1;
+                je _is_already_open;
+                print "You open the box. A strong smell of moss invades your nostrils.\nInside is a set of ritual candles.\n";
+                mov [r0], 1;
+                ret 0;
+
+                _is_already_open:
+                print "Box is already open!\n";
+            );
+
+            is_open = 0;
+        };
+
+        candle = {
+            inspect = (
+                ldsc "main";
+                ldi ri0, "box";
+                ldia r0, ri0, "is_open";
+                cmp [r0], 0;
+                je _not_open;
+                print "A set of ritual candles";
+                _not_open:
+                ret 0;
+            ); 
+
+            take = (
+                ldsc "main";
+                ldi ri0, "box";
+                ldia r0, ri0, "is_open";
+                cmp [r0], 0;
+                je _not_open;
+
+                ldi ri0, "candle";
+                ldia r0, ri0, "is_taken";
+                cmp [r0], 1;
+                je _already_taken;
+
+                mov [r0], 1;
+                print "You take the candles and place them in your pack.\n";
+                jmp _not_open;
+
+                _already_taken:
+                print "You already took the candles!\nThere are always more, however.\n";
+                
+                _not_open:
+                ret 0;
+            );
+
+            use = (
+                ldsc "main";
+                ldi ri0, "candle";
+                ldia r0, ri0, "is_used";
+
+                cmp [r0], 1;
+                je _already_used;
+
+                mov [r0], 1;
+                ldi ri0, "circle";
+                ldia r0, ri0, "has_candle";
+                mov [r0], 1;
+                print "You place the candles around the summoning circle.\nThe circle pulses hungrily, then activates.\n";
+                ret 0;
+
+                _already_used:
+                print "You don't have candle!\n";
+                ret 0;
+            );  
+
+            is_taken = 0;
+            is_used = 0;
+        };
+    };
+}

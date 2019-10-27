@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    set_scene(get_scene("scene0"));
+    set_scene(get_scene("intro"));
 
     while(1)
     {

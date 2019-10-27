@@ -12,19 +12,21 @@ int32_t load_scenes()
     char *file_buffer;
     // char *identifier;
     long file_len;
+    uint32_t offset = 0;
 
     struct scene_t *scene;
 
-    file = fopen("story.dat", "r");
+    file = fopen("story2.dat", "rb");
     if(file == NULL)
     {
         return -1;
     }
+    
     fseek(file, 0, SEEK_END);
     file_len = ftell(file);
     rewind(file);
     file_buffer = calloc(1, file_len + 1);
-    fread(file_buffer, 1, file_len, file);
+    fread(file_buffer, file_len, 1, file);
     fclose(file);
     file_buffer[file_len] = '\0';
 

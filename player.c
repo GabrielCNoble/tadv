@@ -2,6 +2,7 @@
 #include "scene.h"
 #include "vm.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 
@@ -42,6 +43,9 @@ enum PLAYER_CMDS
     PLAYER_CMD_TAKE,
     PLAYER_CMD_WALK,
     PLAYER_CMD_USE,
+    PLAYER_CMD_PET,
+    PLAYER_CMD_DIE,
+    PLAYER_CMD_EXIT,
     PLAYER_CMD_UNKNOWN,
 };
 
@@ -97,63 +101,104 @@ void p_next_cmd()
             command = PLAYER_CMD_USE;
             cmd_question = "Use what?";
         }
+        else if(!strcmp(lexer.token.constant.ptr_constant, "pet"))
+        {
+            command = PLAYER_CMD_PET;
+            cmd_question = "Do the pet";
+        }
+        else if(!strcmp(lexer.token.constant.ptr_constant, "die"))
+        {
+            command = PLAYER_CMD_DIE;
+        }
+        else if(!strcmp(lexer.token.constant.ptr_constant, "quit"))
+        {
+            command = PLAYER_CMD_EXIT;
+        }
 
         // printf("lexed\n");
 
         if(command != PLAYER_CMD_UNKNOWN)
         {
-            vm_lex_one_token(&lexer);
-
-            if(lexer.token.token_class == TOKEN_CLASS_UNKNOWN)
+            switch(command)
             {
-                printf("%s\n", cmd_question);
-                vm_init_lexer(&lexer, p_in());
-                vm_lex_one_token(&lexer);
-            }
+                case PLAYER_CMD_PET:
+                    interactable = get_interactable(get_current_scene(), "cat");
 
-            if(lexer.token.token_class == TOKEN_CLASS_IDENTIFIER)
-            {
-                interactable = get_interactable(get_current_scene(), lexer.token.constant.ptr_constant);
-
-                switch(command)
-                {
-                    case PLAYER_CMD_INSPECT:
-                        attrib_name = "inspect";
-                    break;
-
-                    case PLAYER_CMD_OPEN:
-                        attrib_name = "open";
-                    break;
-
-                    case PLAYER_CMD_TAKE:
-                        attrib_name = "take";
-                    break;
-
-                    case PLAYER_CMD_WALK:
-                        attrib_name = "walk";
-                    break;
-
-                    case PLAYER_CMD_USE:
-                        attrib_name = "use";
-                    break;
-                }
-
-                if(interactable)
-                {
-                    attrib = dat_get_attrib(interactable->attribs, attrib_name);
-        
-                    if(attrib)
+                    if(interactable)
                     {
-                        if(attrib->type == DAT_ATTRIB_TYPE_STRING)
-                        {
-                            printf("%s\n", attrib->data.str_data);
-                        }
-                        else if(attrib->type == DAT_ATTRIB_TYPE_CODE)
+                        attrib = dat_get_attrib(interactable->attribs, "pet");
+
+                        if(attrib)
                         {
                             vm_execute_code(&attrib->data.code);
                         }
                     }
-                }
+                break;
+
+                case PLAYER_CMD_DIE:
+                    printf("You cannot escape that easily.\n");
+                break;
+
+                case PLAYER_CMD_EXIT:
+                    printf("You will always be trapped by prisons. Some are just harder to see.\n");
+                    exit(0);
+                break;
+
+                default:
+                    vm_lex_one_token(&lexer);
+
+                    if(lexer.token.token_class == TOKEN_CLASS_UNKNOWN)
+                    {
+                        printf("%s\n", cmd_question);
+                        vm_init_lexer(&lexer, p_in());
+                        vm_lex_one_token(&lexer);
+                    }
+
+                    if(lexer.token.token_class == TOKEN_CLASS_IDENTIFIER)
+                    {
+                        interactable = get_interactable(get_current_scene(), lexer.token.constant.ptr_constant);
+
+                        switch(command)
+                        {
+                            case PLAYER_CMD_INSPECT:
+                                attrib_name = "inspect";
+                            break;
+
+                            case PLAYER_CMD_OPEN:
+                                attrib_name = "open";
+                            break;
+
+                            case PLAYER_CMD_TAKE:
+                                attrib_name = "take";
+                            break;
+
+                            case PLAYER_CMD_WALK:
+                                attrib_name = "walk";
+                            break;
+
+                            case PLAYER_CMD_USE:
+                                attrib_name = "use";
+                            break;
+                        }
+
+                        if(interactable)
+                        {
+                            attrib = dat_get_attrib(interactable->attribs, attrib_name);
+                
+                            if(attrib)
+                            {
+                                if(attrib->type == DAT_ATTRIB_TYPE_STRING)
+                                {
+                                    printf("%s\n", attrib->data.str_data);
+                                }
+                                else if(attrib->type == DAT_ATTRIB_TYPE_CODE)
+                                {
+                                    vm_execute_code(&attrib->data.code);
+                                }
+                            }
+                        }
+                    }
+                break;
             }
         }
     }
