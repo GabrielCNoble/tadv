@@ -116,11 +116,18 @@ struct dat_attrib_t *dat_parse_dat_string(const char *src)
     dat_next_token(&parser);
 
     while(parser.lexer.token.token_class != TOKEN_CLASS_UNKNOWN)
-    {
+    {  
+        
+        // printf("%d\n", parser.lexer.token.token_class);
         attrib = calloc(1, sizeof(struct dat_attrib_t ));
         attrib->type = DAT_ATTRIB_TYPE_STRUCT;
         attrib->data.attrib = dat_parse(&parser);
         
+        // if(parser.lexer.token.token_class == TOKEN_CLASS_IDENTIFIER)
+        // {
+        //     printf("%s %d %d\n", parser.lexer.token.constant.ptr_constant, parser.lexer.offset, parser.lexer.max_offset);
+        // }
+        // printf("%d\n", parser.lexer.token.token_class);
         // printf("stuck\n");
 
         if(!attrib->data.attrib)
@@ -219,6 +226,8 @@ struct dat_attrib_t *dat_parse(struct dat_parser_t *parser)
            parser->lexer.token.token_type != TOKEN_PUNCTUATOR_EQUAL)
         {
             vm_set_last_error("error: expecting a '=' after attribute '%s', got '%s'", attrib->name, vm_translate_token(&parser->lexer.token));
+            // printf("%s\n\n", parser->lexer.src + parser->lexer.prev_offset);
+            // printf("%s\n", parser->lexer.src + parser->lexer.offset);
             goto _free_attribs;
         }
 

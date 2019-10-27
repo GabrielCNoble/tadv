@@ -246,6 +246,7 @@ void vm_init()
 
     opcode_info[VM_OPCODE_IN] = OPCODE("in", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER, 0, 0);
     opcode_info[VM_OPCODE_RET] = OPCODE("ret", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | OPERAND_TYPE_INT_CONSTANT, 0, 0);
+    opcode_info[VM_OPCODE_EXIT] = OPCODE("exit", sizeof(struct opcode_t), 0, 0, 0, 0);
     // opcode_info[VM_OPCODE_CALL] = OPCODE("call", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_LABEL | OPERAND_TYPE_GP_REGISTER, 0, 0);
    
     opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0, 0, 0, 0);
@@ -592,6 +593,11 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
     // {
     lexer->prev_offset = lexer->offset;
 
+    if(lexer->offset >= lexer->max_offset)
+    {
+        return 0;
+    }
+
     while(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_BLANK && lexer->src[lexer->offset] != '\0') lexer->offset++;
 
     if(lexer->src[lexer->offset] != '\0')
@@ -644,6 +650,8 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                 lexer->offset++;
                 lexer->token_str[token_str_index] = '\0';
                 lexer->token.constant.ptr_constant = lexer->token_str;
+
+                // printf("%s\n", lexer->token_str);
             }
             else
             {
@@ -937,6 +945,7 @@ char *vm_translate_token(struct token_t *token)
 void vm_init_lexer(struct vm_lexer_t *lexer, const char *src)
 {
     lexer->offset = 0;
+    lexer->max_offset = strlen(src);
     lexer->src = src;
     lexer->token.token_class = TOKEN_CLASS_UNKNOWN;
 }
@@ -1837,6 +1846,10 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
 
             case VM_OPCODE_RET:
                 return *(uint64_t *)addresses[0];
+            break;
+
+            case VM_OPCODE_EXIT:
+                exit(0);
             break;
 
             case VM_OPCODE_FCRSH:

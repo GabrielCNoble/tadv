@@ -158,6 +158,8 @@ enum VM_OPCODES
     VM_OPCODE_IN,
 
     VM_OPCODE_RET,
+
+    VM_OPCODE_EXIT,
     // VM_OPCODE_CALL,
 
 
@@ -317,6 +319,7 @@ struct vm_lexer_t
     const char *src;
     uint32_t prev_offset;
     uint32_t offset;
+    uint32_t max_offset;
     struct token_t token;
     char token_str[512];
 };
