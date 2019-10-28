@@ -16,7 +16,7 @@ int32_t load_scenes()
 
     struct scene_t *scene;
 
-    file = fopen("/LovecraftScenes/intro.scene", "rb");
+    file = fopen("LovecraftScenes/main.scene", "rb");
     if(file == NULL)
     {
         return -1;
@@ -38,6 +38,8 @@ int32_t load_scenes()
 //lexer tokens example
 	struct vm_lexer_t lexer;
 	vm_init_lexer(&lexer, file_buffer);
+	lexer.lex_blank = 1;
+
 	do{
 		vm_lex_one_token(&lexer);
 		printf("%s\n", vm_translate_token_verbose(&lexer.token));
