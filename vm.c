@@ -891,6 +891,10 @@ char *vm_translate_token_verbose(struct token_t *token)
         case TOKEN_CLASS_PUNCTUATOR:
             token_class = "Punctuator";
         break;
+
+        case TOKEN_CLASS_BLANK:
+            token_class = "Blank";
+        break;
     }
 
     sprintf(fmt, "%s: %s", token_class, vm_translate_token(token));
@@ -928,6 +932,23 @@ char *vm_translate_token(struct token_t *token)
 
         case TOKEN_CLASS_INSTRUCTION:
             return opcode_info[token->constant.uint_constant].name;
+        break;
+
+        case TOKEN_CLASS_BLANK:
+            switch(token->token_type)
+            {
+                case TOKEN_BLANK_NEW_LINE:
+                    return "NL";
+                break;
+
+                case TOKEN_BLANK_TAB:
+                    return "TAB";
+                break;
+
+                case TOKEN_BLANK_SPACE:
+                    return "SPACE";
+                break;  
+            }
         break;
 
         case TOKEN_CLASS_PUNCTUATOR:
