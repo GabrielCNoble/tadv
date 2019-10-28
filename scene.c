@@ -16,7 +16,7 @@ int32_t load_scenes()
 
     struct scene_t *scene;
 
-    file = fopen("exemplo2.scene", "rb");
+    file = fopen("/LovecraftScenes/intro.scene", "rb");
     if(file == NULL)
     {
         return -1;
@@ -34,6 +34,8 @@ int32_t load_scenes()
     struct dat_attrib_t *attrib;
     struct dat_attrib_t *scene_attrib;
 
+
+//lexer tokens example
 	struct vm_lexer_t lexer;
 	vm_init_lexer(&lexer, file_buffer);
 	do{
@@ -43,6 +45,7 @@ int32_t load_scenes()
 	}while(lexer.token.token_class != TOKEN_CLASS_UNKNOWN);
 
 	return 0;
+//example code above, delete
 
     attribs = dat_parse_dat_string(file_buffer);
 
