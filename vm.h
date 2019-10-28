@@ -11,29 +11,29 @@
 
 enum VM_OPCODES
 {
-    /* 
+    /*
         print: prints a string
 
-        'print string', where string is a string constant 
+        'print string', where string is a string constant
     */
 
     VM_OPCODE_PRINT = 0,
 
-    /* 
+    /*
         ldsc: loads the reference of a scene into the scene register.
 
         'ldsc string', where 'string' is the scene name
     */
-    VM_OPCODE_LDSC,           
+    VM_OPCODE_LDSC,
 
     /*
         ldsca: gets the reference of a scene attribute. The scene from which
         the attribute belongs will be contained in the scene register
 
         'ldsca r(0-3), attribute', where 'r(0-3)' is a gpr, and will receive the
-        the attribute address. 'attribute' is a string constant, and contains the 
-        attribute name. Attributes can be contained inside another attributes, 
-        in which case the string constant will be composed by the names of 
+        the attribute address. 'attribute' is a string constant, and contains the
+        attribute name. Attributes can be contained inside another attributes,
+        in which case the string constant will be composed by the names of
         all attributes until reaching the desired attribute, separated by
         a '.'. For example,
 
@@ -44,20 +44,20 @@ enum VM_OPCODES
         called "actions", and puts its address in r0.
 
         'ldsca r(0-3), r(0-3)', where r(0-3) is a gpr. The first register is where the
-        address will be stored, the second one contains the address of the 
+        address will be stored, the second one contains the address of the
         string that represents the attribute name. Using the same register as source
         and destination is valid.
-    */  
-    VM_OPCODE_LDSCA,       
+    */
+    VM_OPCODE_LDSCA,
 
     VM_OPCODE_CHGSC,             /* changes to another scene */
 
 
-    /* 
+    /*
         ldi: loads an interactable into an interactable register.
 
         'ldi ri(0-1), interactable', where 'interactable' is a string that represents
-        the name of an interactable, and ri(0-1) is a interactible register  
+        the name of an interactable, and ri(0-1) is a interactible register
     */
     VM_OPCODE_LDI,
 
@@ -70,11 +70,11 @@ enum VM_OPCODES
         to a interactible, and r(0-3) is a general purpouse register, which will receive the
         pointer to the attribute
     */
-    VM_OPCODE_LDIA,              
+    VM_OPCODE_LDIA,
 
 
     /*
-        mov: moves data from/to registers/memory. This instruction allows modifying an 
+        mov: moves data from/to registers/memory. This instruction allows modifying an
                                    writing back scene and interactable attributes
 
         mov r(0-3), r(0-3)
@@ -82,9 +82,9 @@ enum VM_OPCODES
         mov r(0-3), [r(0-3)]
         mov [r(0-3)], [r(0-3)]
         mov r(0-3), constant
-        mov [r(0-3)], constant 
+        mov [r(0-3)], constant
     */
-    VM_OPCODE_MOV,              
+    VM_OPCODE_MOV,
 
 
     VM_OPCODE_INC,
@@ -93,7 +93,7 @@ enum VM_OPCODES
     VM_OPCODE_OR,
     VM_OPCODE_XOR,
 
-    
+
     VM_OPCODE_CMP,
 
     /*
@@ -102,7 +102,7 @@ enum VM_OPCODES
     VM_OPCODE_CMPS,
 
     /*
-        cmpslc: transform the strings to lowercase, then compare them 
+        cmpslc: transform the strings to lowercase, then compare them
     */
     VM_OPCODE_CMPSLC,
 
@@ -119,7 +119,7 @@ enum VM_OPCODES
     /*
         jmp: performs an unconditional jump.
 
-        'jmp address', where address is the absotule address to  
+        'jmp address', where address is the absotule address to
         jump to
     */
     VM_OPCODE_JMP,
@@ -149,8 +149,8 @@ enum VM_OPCODES
     */
     VM_OPCODE_JGE,
 
-    /* 
-        ble : branch when lesser than or equal to (N = 1 | Z = 1) 
+    /*
+        ble : branch when lesser than or equal to (N = 1 | Z = 1)
     */
     VM_OPCODE_JLE,
 
@@ -164,7 +164,7 @@ enum VM_OPCODES
 
 
     VM_OPCODE_FCRSH,
-    
+
     VM_OPCODE_LAST,
     VM_OPCODE_MAX = (1 << VM_OPCODE_BITS) - 1
 };
@@ -231,7 +231,9 @@ enum TOKEN_PUNCTUATOR
     TOKEN_PUNCTUATOR_CBRACE,
     TOKEN_PUNCTUATOR_PLUS,
     TOKEN_PUNCTUATOR_MINUS,
-    TOKEN_PUNCTUATOR_EQUAL
+    TOKEN_PUNCTUATOR_EQUAL,
+	TOKEN_PUNCTUATOR_ASTERISK,
+	TOKEN_PUNCTUATOR_SLASH
 };
 
 union token_constant_t
@@ -254,7 +256,7 @@ unsigned opcode : VM_OPCODE_BITS;                                       \
 unsigned operand_count : VM_OPCODE_OPERAND_COUNT_BITS;                  \
 unsigned operand0_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
 unsigned operand1_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
-unsigned operand2_class : VM_OPCODE_OPERAND_CLASS_BITS; 
+unsigned operand2_class : VM_OPCODE_OPERAND_CLASS_BITS;
 
 struct opcode_t
 {
@@ -303,14 +305,14 @@ struct code_label_t
     char name[8];                       \
     uint8_t offset;                     \
     uint8_t operand_count;              \
-    uint16_t allowed_operand_types[3]  
+    uint16_t allowed_operand_types[3]
 
 struct opcode_info_t
 {
-    char name[8];                       
-    uint8_t offset;                     
-    uint8_t operand_count;              
-    uint16_t allowed_operand_types[3];  
+    char name[8];
+    uint8_t offset;
+    uint8_t operand_count;
+    uint16_t allowed_operand_types[3];
     void (*function)(void *operand0, void *operand1, void *operand2);
 };
 

@@ -16,12 +16,12 @@ int32_t load_scenes()
 
     struct scene_t *scene;
 
-    file = fopen("story2.dat", "rb");
+    file = fopen("exemplo2.scene", "rb");
     if(file == NULL)
     {
         return -1;
     }
-    
+
     fseek(file, 0, SEEK_END);
     file_len = ftell(file);
     rewind(file);
@@ -34,7 +34,17 @@ int32_t load_scenes()
     struct dat_attrib_t *attrib;
     struct dat_attrib_t *scene_attrib;
 
-    attribs = dat_parse_dat_string(file_buffer);    
+	struct vm_lexer_t lexer;
+	vm_init_lexer(&lexer, file_buffer);
+	do{
+		vm_lex_one_token(&lexer);
+		printf("%s\n", vm_translate_token(&lexer.token));
+		getchar();
+	}while(lexer.token.token_class != TOKEN_CLASS_UNKNOWN);
+
+	return;
+
+    attribs = dat_parse_dat_string(file_buffer);
 
     attrib = attribs;
     while(attrib)
@@ -48,7 +58,7 @@ int32_t load_scenes()
             scene->name = scene_attrib->data.str_data;
 
             build_interactable_list(scene);
-            
+
             scene->next = scenes;
             scenes = scene;
         }
@@ -125,7 +135,7 @@ struct interactable_t *get_interactable(struct scene_t *scene, char *name)
     }
 
     // printf("found\n");
-    
+
     return interactable;
 }
 

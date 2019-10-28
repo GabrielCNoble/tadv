@@ -1,22 +1,19 @@
-//inline comment
-
-/*multi
-line
-comment
-*/
-
 "You see a door, an altar, a box, and a summoning circle"
 
-floor:
-    INSPECT:   ["You lean down and examine the floor. It appears to be made out of floor.",
-				"You take a closer look at the floor. A smooth stone texutre covers the majority of it.",
-				"You examine the floor further. You find a small crack near the door.",
-				"You examine the floor further. Surely this crack must lead to an escape route. It doesn't. The trail goes cold...",
-				"You examine the floor further. Aha! Something new! A spot of grout neaer the side of the wall! Nothing interesting though.",
-				"You really need some new hobbies."]
+Floor:
+	floor_inspect_count = 0
 
+    INSPECT:
+		.floor_inspect_count++{
+			"You lean down and examine the floor. It appears to be made out of floor.",
+			"You take a closer look at the floor. A smooth stone texutre covers the majority of it.",
+			"You examine the floor further. You find a small crack near the door.",
+			"You examine the floor further. Surely this crack must lead to an escape route. It doesn't. The trail goes cold...",
+			"You examine the floor further. Aha! Something new! A spot of grout neaer the side of the wall! Nothing interesting though.",
+			"You really need some new hobbies."
+		}
 
-circle:
+Circle:
 	has_candle = false
 
     INSPECT: "A chalk circle lies on the ground. 'Just add candles!' say the instructions on the altar."
@@ -34,10 +31,10 @@ circle:
 
             input{
 				"cat":
-					toggle cat.is_summoned
+					toggle Cat.is_summoned
 					"You summon the cat. It meows at you petulently."
 
-					cat.has_key:
+					Cat.has_key:
 						"There is a small key around its neck."
 
 				"exomal", "exomal the wise":
@@ -115,40 +112,41 @@ circle:
 					"You failed to summon anyone. You loser..."
 			}
 
-key:
+Key:
 	is_taken = false
 	is_used = false
 
     INSPECT:
-		cat.is_summoned and not .is_taken:
+		Cat.is_summoned and not .is_taken:
 			"The key shines in the light. Could this mean salvation?"
 
     TAKE:
-		cat.is_summoned and cat.has_key:
-			toggle cat.has_key
+		Cat.is_summoned and Cat.has_key:
+			toggle Cat.has_key
 			toggle .is_taken
 			"You take the key from around the cat's neck.\nIt meows in understanding."
 
     USE:
-		.is_taken and not .is_used and door.is_locked:
+		.is_taken and not .is_used and Door.is_locked:
 			"It's a challenge, but the key eventually turns in the rusty lock."
 			toggle .is_used
-			toggle door.is_locked
+			toggle Door.is_locked
 		else:
 			"You don't have the key!"
 
-door:
+Door:
 	is_locked = true
 
     INSPECT:
-		door.is_locked? "The door's rusty lock taunts you, preventing you from leaving." : "The door's lock lies at your feet. Are you ready to leave the quiet stability of what you know?"
+		.is_locked? "The door's rusty lock taunts you, preventing you from leaving." : "The door's lock lies at your feet. Are you ready to leave the quiet stability of what you know?"
 
     OPEN:
-        not door.is_locked:
+        not .is_locked:
 			"You've escaped the room! But you can never escape your own mind."
         	exit;
 
-cat:
+Cat:
+	pet_count = 0
 	is_summoned = false
 	has_key = true
 
@@ -160,22 +158,24 @@ cat:
 
     PET:
 		.is_summoned:
-        	["You pet the cat. It meows in appreciation.",
-        	 "You pet the cat again. It purrs and relaxes into your hand.",
-        	 "You pet the cat. It purrs and lies down.",
-        	 "You pet the cat. Its eyes close and it relaxes further.",
-        	 "You pet the cat. It rolls over to let you rub its belly.",
-        	 "You pet the cat's belly. It purrs in appreciation.",
-        	 "You pet the cat's belly. It stretches to give you a better reach, then purrs.",
-			 "You pet the cat's belly. Its eyes close, and it seems to be close to falling asleep.",
-			 "You pet the cat's belly. It lazily bats its paws around. It seems to be dreaming.",
-			 "You pet the cat's belly. It stirs, then lets out a soft meow.",
-			 "You pet the cat's belly. It reaches out its paws toward you.",
-			 "You pet the cat's belly. You're feeling a bit sleepy yourself now.\nYou feel incredibly relaxed.",
-			 "You pet the cat's belly. You've enjoyed your time together.",
-			 "You pet the cat's belly. Its purring is a quiet background noise."]
+        	.pet_count++{
+				1: "You pet the cat. It meows in appreciation.",
+	        	2: "You pet the cat again. It purrs and relaxes into your hand.",
+	        	3: "You pet the cat. It purrs and lies down.",
+	        	4: "You pet the cat. Its eyes close and it relaxes further.",
+	        	5: "You pet the cat. It rolls over to let you rub its belly.",
+	        	6: "You pet the cat's belly. It purrs in appreciation.",
+	        	7: "You pet the cat's belly. It stretches to give you a better reach, then purrs.",
+				8: "You pet the cat's belly. Its eyes close, and it seems to be close to falling asleep.",
+				9: "You pet the cat's belly. It lazily bats its paws around. It seems to be dreaming.",
+				10: "You pet the cat's belly. It stirs, then lets out a soft meow.",
+				11: "You pet the cat's belly. It reaches out its paws toward you.",
+				12: "You pet the cat's belly. You're feeling a bit sleepy yourself now.\nYou feel incredibly relaxed.",
+				13: "You pet the cat's belly. You've enjoyed your time together.",
+				else: "You pet the cat's belly. Its purring is a quiet background noise."
+			}
 
-box:
+Box:
 	is_open = false
 
     INSPECT:
@@ -185,22 +185,22 @@ box:
         .is_open? "Box is already open!" : "You open the box. A strong smell of moss invades your nostrils.\nInside is a set of ritual candles."
 
 
-candle:
+Candle:
 	is_taken = false
 	is_used = false
 
     INSPECT:
-		box.is_open:
+		Box.is_open:
 			"A set of ritual candles"
 
     TAKE:
-		box.is_open:
+		Box.is_open:
 			.is_taken? "You take the candles and place them in your pack." : "You already took the candles!\nThere are always more, however."
 
     USE:
 		not .is_used and .is_taken:
 			toggle .is_taken
-			toggle circle.has_candle
+			toggle Circle.has_candle
 			"You place the candles around the summoning circle.\nThe circle pulses hungrily, then activates."
 		else:
 			"You don't have candle!"

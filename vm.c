@@ -26,20 +26,20 @@ enum OPERAND_TYPES
     OPERAND_TYPE_FLOAT_CONSTANT =  1 << 1,
     OPERAND_TYPE_STRING_CONSTANT = 1 << 2,
 
-    /* 
+    /*
         opcode label;
 
         This is mostly useful for jumps, where
-        one writes: 
-        
-        jmp label; 
+        one writes:
+
+        jmp label;
     */
     OPERAND_TYPE_LABEL = 1 << 3,
 
     /*
         opcode offset label;
 
-        This is mostly useful to store the address of 
+        This is mostly useful to store the address of
         a label. For example:
 
         mov r0, offset label;
@@ -71,7 +71,7 @@ enum OPERAND_TYPES
         opcode [integer constant]
 
         This has the same use case as a register
-        containing an pointer. The difference is 
+        containing an pointer. The difference is
         that the value used as a pointer will be
         determined during code assembly. A constant
         address can be, for example, a global variable
@@ -81,13 +81,13 @@ enum OPERAND_TYPES
 
 
 
-  
+
 struct register_info_t
 {
     char *name;
     void *address;
 };
-  
+
 #define OPCODE(n, o, oc, a0, a1, a2)                            \
     /* designated initializers rock :) */                       \
     (struct opcode_info_t){.name = n,                           \
@@ -123,7 +123,7 @@ struct interactible_t *i_regs[I_REGS_COUNT];
 struct code_buffer_t current_code_buffer;
 
 /* tokens freed through vm_free_token, so they can be reused whenever something
-has to be lexed during runtime (useful for instructions that have strings as 
+has to be lexed during runtime (useful for instructions that have strings as
 operands) */
 struct token_t *free_tokens = NULL;
 
@@ -131,10 +131,10 @@ struct vm_assembler_t
 {
     uint32_t parsing_instruction;
     struct vm_lexer_t lexer;
-}; 
-   
+};
+
 void vm_init()
-{ 
+{
     opcode_info[VM_OPCODE_PRINT] = OPCODE("print", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT | OPERAND_TYPE_GP_REGISTER, 0, 0);
     opcode_info[VM_OPCODE_LDSC] = OPCODE("ldsc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT, 0, 0);
     opcode_info[VM_OPCODE_LDSCA] = OPCODE("ldsca", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER, OPERAND_TYPE_STRING_CONSTANT, 0);
@@ -144,8 +144,8 @@ void vm_init()
 
     opcode_info[VM_OPCODE_MOV] = OPCODE("mov", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_I_REGISTER |
-                                                                               OPERAND_TYPE_MEMORY_REGISTER, 
-                                                                               
+                                                                               OPERAND_TYPE_MEMORY_REGISTER,
+
                                                                                OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_I_REGISTER |
                                                                                OPERAND_TYPE_MEMORY_REGISTER |
@@ -153,7 +153,7 @@ void vm_init()
                                                                                OPERAND_TYPE_LABEL_OFFSET, 0);
 
 
-    opcode_info[VM_OPCODE_INC] = OPCODE("inc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_INC] = OPCODE("inc", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_MEMORY_REGISTER, 0, 0);
 
 
@@ -162,61 +162,61 @@ void vm_init()
 
 
     opcode_info[VM_OPCODE_AND] = OPCODE("and", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
-                                                                               OPERAND_TYPE_MEMORY_REGISTER, 
-                                                                               
+                                                                               OPERAND_TYPE_MEMORY_REGISTER,
+
                                                                                OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_MEMORY_REGISTER |
                                                                                OPERAND_TYPE_INT_CONSTANT, 0);
 
 
     opcode_info[VM_OPCODE_OR] = OPCODE("or", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
-                                                                             OPERAND_TYPE_MEMORY_REGISTER, 
-                                                                             
+                                                                             OPERAND_TYPE_MEMORY_REGISTER,
+
                                                                              OPERAND_TYPE_GP_REGISTER |
                                                                              OPERAND_TYPE_MEMORY_REGISTER |
                                                                              OPERAND_TYPE_INT_CONSTANT, 0);
 
 
     opcode_info[VM_OPCODE_XOR] = OPCODE("xor", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
-                                                                               OPERAND_TYPE_MEMORY_REGISTER, 
-                                                                               
-                                                                               OPERAND_TYPE_GP_REGISTER | 
+                                                                               OPERAND_TYPE_MEMORY_REGISTER,
+
+                                                                               OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_MEMORY_REGISTER |
                                                                                OPERAND_TYPE_INT_CONSTANT, 0);
 
 
     opcode_info[VM_OPCODE_CMP] = OPCODE("cmp", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_I_REGISTER |
-                                                                               OPERAND_TYPE_MEMORY_REGISTER | 
-                                                                               OPERAND_TYPE_INT_CONSTANT, 
-                                                                               
+                                                                               OPERAND_TYPE_MEMORY_REGISTER |
+                                                                               OPERAND_TYPE_INT_CONSTANT,
+
                                                                                OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_I_REGISTER |
-                                                                               OPERAND_TYPE_MEMORY_REGISTER | 
+                                                                               OPERAND_TYPE_MEMORY_REGISTER |
                                                                                OPERAND_TYPE_INT_CONSTANT, 0);
 
-    opcode_info[VM_OPCODE_CMPS] = OPCODE("cmps", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_CMPS] = OPCODE("cmps", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
                                                                                  OPERAND_TYPE_STRING_CONSTANT,
-                                                                                 
-                                                                                 OPERAND_TYPE_GP_REGISTER |
-                                                                                 OPERAND_TYPE_STRING_CONSTANT, 0);  
 
-    opcode_info[VM_OPCODE_CMPSLC] = OPCODE("cmpslc", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER | 
+                                                                                 OPERAND_TYPE_GP_REGISTER |
+                                                                                 OPERAND_TYPE_STRING_CONSTANT, 0);
+
+    opcode_info[VM_OPCODE_CMPSLC] = OPCODE("cmpslc", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
                                                                                  OPERAND_TYPE_STRING_CONSTANT,
-                                                                                 
-                                                                                 OPERAND_TYPE_GP_REGISTER |
-                                                                                 OPERAND_TYPE_STRING_CONSTANT, 0);   
 
-    opcode_info[VM_OPCODE_CMPSSTR] = OPCODE("cmpsstr", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER | 
+                                                                                 OPERAND_TYPE_GP_REGISTER |
+                                                                                 OPERAND_TYPE_STRING_CONSTANT, 0);
+
+    opcode_info[VM_OPCODE_CMPSSTR] = OPCODE("cmpsstr", sizeof(struct opcode_2op_t), 2, OPERAND_TYPE_GP_REGISTER |
                                                                                 OPERAND_TYPE_STRING_CONSTANT,
-                                                                                
+
                                                                                 OPERAND_TYPE_GP_REGISTER |
-                                                                                OPERAND_TYPE_STRING_CONSTANT, 0);                                                                              
+                                                                                OPERAND_TYPE_STRING_CONSTANT, 0);
 
-    opcode_info[VM_OPCODE_LCSTR] = OPCODE("lcstr", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER,0 , 0);                                                                            
+    opcode_info[VM_OPCODE_LCSTR] = OPCODE("lcstr", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER,0 , 0);
 
 
-    opcode_info[VM_OPCODE_JMP] = OPCODE("jmp", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JMP] = OPCODE("jmp", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_INT_CONSTANT |
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
@@ -225,33 +225,33 @@ void vm_init()
                                                                              OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_JNE] = OPCODE("jne", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JNE] = OPCODE("jne", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_JG] = OPCODE("jg", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JG] = OPCODE("jg", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                              OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_JL] = OPCODE("jl", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JL] = OPCODE("jl", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                              OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_JGE] = OPCODE("jge", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JGE] = OPCODE("jge", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
 
-    opcode_info[VM_OPCODE_JLE] = OPCODE("jle", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | 
+    opcode_info[VM_OPCODE_JLE] = OPCODE("jle", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER |
                                                                                OPERAND_TYPE_LABEL, 0, 0);
 
     opcode_info[VM_OPCODE_IN] = OPCODE("in", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER, 0, 0);
     opcode_info[VM_OPCODE_RET] = OPCODE("ret", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | OPERAND_TYPE_INT_CONSTANT, 0, 0);
     opcode_info[VM_OPCODE_EXIT] = OPCODE("exit", sizeof(struct opcode_t), 0, 0, 0, 0);
     // opcode_info[VM_OPCODE_CALL] = OPCODE("call", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_LABEL | OPERAND_TYPE_GP_REGISTER, 0, 0);
-   
+
     opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0, 0, 0, 0);
 
-    
+
 
     char_map['_'] = CHAR_TYPE_LETTER;
 
@@ -324,7 +324,7 @@ void vm_init()
 //             {
 //                 if(src[index] == '"')
 //                 {
-//                     token_class = TOKEN_CLASS_STRING_CONSTANT;   
+//                     token_class = TOKEN_CLASS_STRING_CONSTANT;
 //                     token_type = 0;
 
 //                     index++;
@@ -363,7 +363,7 @@ void vm_init()
 //                         {
 //                             escaped = src[index++];
 //                         }
-                        
+
 //                         token_str[token_str_index++] = escaped;
 //                     }
 
@@ -373,7 +373,7 @@ void vm_init()
 //                 else
 //                 {
 //                     token_class = TOKEN_CLASS_PUNCTUATOR;
-                    
+
 //                     switch(src[index])
 //                     {
 //                         case ',':
@@ -389,7 +389,7 @@ void vm_init()
 //                         case ':':
 //                             index++;
 //                             token_type = TOKEN_PUNCTUATOR_COLON;
-//                         break;      
+//                         break;
 
 //                         case ';':
 //                             index++;
@@ -476,7 +476,7 @@ void vm_init()
 //                     if(src[index] == '.')
 //                     {
 //                         token_class = TOKEN_CLASS_FLOAT_CONSTANT;
-            
+
 //                         token_str[token_str_index++] = src[index++];
 
 //                         if(char_map[(uint32_t)src[index]] != CHAR_TYPE_NUMBER)
@@ -519,22 +519,22 @@ void vm_init()
 //             next_token = vm_alloc_token();
 //             next_token->next = NULL;
 
-//             if(token_class == TOKEN_CLASS_STRING_CONSTANT || 
-//                token_class == TOKEN_CLASS_IDENTIFIER || 
+//             if(token_class == TOKEN_CLASS_STRING_CONSTANT ||
+//                token_class == TOKEN_CLASS_IDENTIFIER ||
 //                token_class == TOKEN_CLASS_CODE)
 //             {
 //                 if(next_token->token_class == TOKEN_CLASS_STRING_CONSTANT &&
 //                    strlen(next_token->constant.ptr_constant) >= strlen(token_str))
 //                 {
 //                     /* since tokens are recycled, they keep the class they had last
-//                     time they were used. If here the allocd token is a 
+//                     time they were used. If here the allocd token is a
 //                     string constant token, and the space of its previous
 //                     string constant is big enough, just reuse the memory */
 //                     strcpy(next_token->constant.ptr_constant, token_str);
 //                 }
 //                 else
 //                 {
-//                     /* the token is either of different type or doesn't 
+//                     /* the token is either of different type or doesn't
 //                     have enough space. */
 //                     if(next_token->constant.ptr_constant)
 //                     {
@@ -643,7 +643,7 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                     {
                         escaped = lexer->src[lexer->offset++];
                     }
-                    
+
                     lexer->token_str[token_str_index++] = escaped;
                 }
 
@@ -656,7 +656,7 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
             else
             {
                 lexer->token.token_class = TOKEN_CLASS_PUNCTUATOR;
-                
+
                 switch(lexer->src[lexer->offset])
                 {
                     case ',':
@@ -672,7 +672,7 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                     case ':':
                         lexer->offset++;
                         lexer->token.token_type = TOKEN_PUNCTUATOR_COLON;
-                    break;      
+                    break;
 
                     case ';':
                         lexer->offset++;
@@ -713,6 +713,26 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                         lexer->offset++;
                         lexer->token.token_type = TOKEN_PUNCTUATOR_CBRACE;
                     break;
+
+					case '*':
+						lexer->offset++;
+						lexer->token.token_type = TOKEN_PUNCTUATOR_ASTERISK;
+					break;
+
+					case '/':
+						lexer->offset++;
+						lexer->token.token_type = TOKEN_PUNCTUATOR_SLASH;
+					break;
+
+					case '+':
+						lexer->offset++;
+						lexer->token.token_type = TOKEN_PUNCTUATOR_PLUS;
+					break;
+
+					case '-':
+						lexer->offset++;
+						lexer->token.token_type = TOKEN_PUNCTUATOR_MINUS;
+					break;
 
                     default:
                         lexer->token.token_type = TOKEN_CLASS_UNKNOWN;
@@ -759,7 +779,7 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                 if(lexer->src[lexer->offset] == '.')
                 {
                     lexer->token.token_class = TOKEN_CLASS_FLOAT_CONSTANT;
-        
+
                     lexer->token_str[token_str_index++] = lexer->src[lexer->offset++];
 
                     if(char_map[(uint32_t)lexer->src[lexer->offset]] != CHAR_TYPE_NUMBER)
@@ -934,6 +954,14 @@ char *vm_translate_token(struct token_t *token)
                 case TOKEN_PUNCTUATOR_EQUAL:
                     return "=";
                 break;
+
+				case TOKEN_PUNCTUATOR_ASTERISK:
+					return "*";
+				break;
+
+				case TOKEN_PUNCTUATOR_SLASH:
+					return "/";
+				break;
             }
 
         break;
@@ -1077,7 +1105,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
 
                     /* r0, r1, r2, r3, ri0, ri1 */
                     case TOKEN_CLASS_IDENTIFIER:
-                        
+
                         if(operand_classes[operand_index] != VM_OPCODE_OPERAND_CLASS_MEMORY)
                         {
                             operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_REGISTER;
@@ -1104,15 +1132,15 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                                     break;
                                 }
                             }
- 
+
                             if(register_index == I_REGS_COUNT)
                             {
                                 /* not an interactible register, so test to see if this instruction allows labels */
                                 if(opcode_info[opcode->opcode].allowed_operand_types[operand_index] & OPERAND_TYPE_LABEL)
                                 {
                                     /* we store the name of the label for now, and set the type
-                                    of this operand to none. Once all the code has been assembled, 
-                                    and all the labels discovered, we patch the jmp instructions with 
+                                    of this operand to none. Once all the code has been assembled,
+                                    and all the labels discovered, we patch the jmp instructions with
                                     the correct address */
                                     // opcode_3op->operands[operand_index].ptr_operand = alloca(strlen(assembler.lexer.token.constant.ptr_constant) + 1);
                                     // strcpy(opcode_3op->operands[operand_index].ptr_operand, assembler.lexer.token.constant.ptr_constant);
@@ -1123,8 +1151,8 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                                 {
                                     vm_set_last_error("expecting a register name for operand %d, got '%s'", operand_index, vm_translate_token(&assembler.lexer.token));
                                     return 1;
-                                }  
-                            } 
+                                }
+                            }
                             else
                             {
                                 /* this is an interactible register, but... does this instruction allow this register for
@@ -1188,7 +1216,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                         vm_set_last_error("expecting token ']' after register name, got '%s'", vm_translate_token(&assembler.lexer.token));
                         return 1;
                     }
-                    
+
                     if(vm_next_token(&assembler) && !operand_index)
                     {
                         vm_set_last_error(UNEXPECTED_END_REACHED);
@@ -1222,7 +1250,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                 assembler.lexer.token.token_type != TOKEN_PUNCTUATOR_SEMICOLON)
             {
                 vm_set_last_error("expecting ';' after instruction operands, got '%s'", vm_translate_token(&assembler.lexer.token));
-                return 1;   
+                return 1;
             }
 
             assembler.parsing_instruction = 0;
@@ -1289,7 +1317,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                 operand_classes[0] = opcode_3op->operand0_class;
                 operand_classes[1] = opcode_3op->operand1_class;
                 operand_classes[2] = opcode_3op->operand2_class;
-                
+
                 for(uint32_t operand_index = 0; operand_index < opcode->operand_count; operand_index++)
                 {
                     if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_NONE)
@@ -1297,7 +1325,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                         /* we shouldn't really get here normally, since instructions with operands of the type
                         VM_OPCODE_OPERAND_NONE actually have 0 operands. So, if we got here, it means we need
                         to patch a label name */
-                        
+
                         next_label = labels;
 
                         while(next_label)
@@ -1325,7 +1353,7 @@ uint32_t vm_assemble_code(struct code_buffer_t *code_buffer, const char *src)
                         /* we also adjust the operand type for the correct one */
                         operand_classes[operand_index] = VM_OPCODE_OPERAND_CLASS_IMMEDIATE;
                     }
-    
+
                     if(operand_classes[operand_index] == VM_OPCODE_OPERAND_CLASS_STRING_CONSTANT)
                     {
                         /* this instruction takes a string constant as operand, so copy the string
@@ -1442,7 +1470,7 @@ void vm_dissasemble_code(struct code_buffer_t *code_buffer)
     //                         break;
     //                     }
 
-    //                     if(!operand_index) 
+    //                     if(!operand_index)
     //                     {
     //                         printf(", ");
     //                     }
@@ -1538,11 +1566,11 @@ void vm_dissasemble_code(struct code_buffer_t *code_buffer)
     //                             case 2:
     //                                 printf("[r2]");
     //                             break;
-                                
+
     //                             case 3:
     //                                 printf("[r3]");
     //                             break;
-    //                         }  
+    //                         }
     //                     break;
 
     //                     case VM_OPCODE_OPERAND_REGISTER:
@@ -1559,11 +1587,11 @@ void vm_dissasemble_code(struct code_buffer_t *code_buffer)
     //                             case 2:
     //                                 printf("r2");
     //                             break;
-                                
+
     //                             case 3:
     //                                 printf("r3");
     //                             break;
-    //                         } 
+    //                         }
     //                     break;
     //                 }
 
@@ -1616,7 +1644,7 @@ uint64_t vm_alu_op(uint32_t op, uint64_t operand0, uint64_t operand1)
         break;
 
         case VM_ALU_OP_DEC:
-            operand1 = 1; 
+            operand1 = 1;
         case VM_ALU_OP_SUB:
             result = operand0 - operand1;
         break;
@@ -1661,7 +1689,7 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
     struct interactable_t *interactable;
     struct dat_attrib_t *attrib;
     // struct scene_t *scene;
-    
+
     vm_set_code_buffer(code_buffer);
     opcode = vm_next_opcode();
 
@@ -1675,7 +1703,7 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
     union operand_t punny = {};
 
     uint32_t perform_jump;
-    
+
     while(opcode)
     {
         if(opcode->operand_count)
@@ -1887,13 +1915,13 @@ void vm_print_registers()
 
 #define ERROR_STACK_DEPTH 16
 #define ERROR_MESSAGE_LEN 128
-int32_t error_index = -1; 
+int32_t error_index = -1;
 char last_error[ERROR_STACK_DEPTH][ERROR_MESSAGE_LEN];
 
 void vm_set_last_error(const char *error, ...)
 {
     if(error_index < ERROR_STACK_DEPTH)
-    {    
+    {
         error_index++;
         va_list args;
         va_start(args, error);
@@ -1953,4 +1981,3 @@ void vm_free_tokens(struct token_t *tokens)
         tokens = next_token;
     }
 }
-
