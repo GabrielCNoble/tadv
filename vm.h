@@ -214,7 +214,16 @@ enum TOKEN_CLASS
     TOKEN_CLASS_INSTRUCTION,
     TOKEN_CLASS_PUNCTUATOR,
     TOKEN_CLASS_EOF,
+    TOKEN_CLASS_BLANK,
     TOKEN_CLASS_UNKNOWN,
+};
+
+enum TOKEN_BLANK
+{
+    TOKEN_BLANK_NEW_LINE = 0,
+    TOKEN_BLANK_TAB,
+    // TOKEN_BLANK_CARRIAGE_RETURN,
+    TOKEN_BLANK_SPACE,
 };
 
 enum TOKEN_PUNCTUATOR
@@ -233,7 +242,8 @@ enum TOKEN_PUNCTUATOR
     TOKEN_PUNCTUATOR_MINUS,
     TOKEN_PUNCTUATOR_EQUAL,
 	TOKEN_PUNCTUATOR_ASTERISK,
-	TOKEN_PUNCTUATOR_SLASH
+	TOKEN_PUNCTUATOR_SLASH,
+    TOKEN_PUNCTUATOR_INV_SLASH,
 };
 
 union token_constant_t
@@ -324,6 +334,7 @@ struct vm_lexer_t
     uint32_t max_offset;
     struct token_t token;
     char token_str[512];
+    uint32_t lex_blank;
 };
 
 void vm_init();
@@ -334,7 +345,7 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer);
 
 void vm_init_lexer(struct vm_lexer_t *lexer, const char *src);
 
-void vm_print_tokens(struct token_t *tokens);
+char *vm_translate_token_verbose(struct token_t *token);
 
 char *vm_translate_token(struct token_t *token);
 

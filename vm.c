@@ -284,6 +284,7 @@ void vm_init()
     char_map['-'] = CHAR_TYPE_PUNCTUATOR;
     char_map['+'] = CHAR_TYPE_PUNCTUATOR;
     char_map['/'] = CHAR_TYPE_PUNCTUATOR;
+    char_map['\\'] = CHAR_TYPE_PUNCTUATOR;
     char_map['*'] = CHAR_TYPE_PUNCTUATOR;
     char_map['='] = CHAR_TYPE_PUNCTUATOR;
     char_map['.'] = CHAR_TYPE_PUNCTUATOR;
@@ -598,7 +599,10 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
         return 0;
     }
 
-    while(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_BLANK && lexer->src[lexer->offset] != '\0') lexer->offset++;
+    if(!lexer->lex_blank)
+    {
+        while(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_BLANK && lexer->src[lexer->offset] != '\0') lexer->offset++;
+    }
 
     if(lexer->src[lexer->offset] != '\0')
     {
@@ -724,6 +728,11 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
 						lexer->token.token_type = TOKEN_PUNCTUATOR_SLASH;
 					break;
 
+                    case '\\':
+                        lexer->offset++;
+                        lexer->token.token_type = TOKEN_PUNCTUATOR_INV_SLASH;
+                    break;
+
 					case '+':
 						lexer->offset++;
 						lexer->token.token_type = TOKEN_PUNCTUATOR_PLUS;
@@ -739,6 +748,30 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                     break;
                 }
             }
+        }
+        else if(char_map[(uint32_t)lexer->src[lexer->offset]] == CHAR_TYPE_BLANK)
+        {
+            lexer->token.token_class = TOKEN_CLASS_BLANK;
+
+            /* ignore all carriage returns... */
+            while(lexer->src[lexer->offset] == '\r') lexer->offset++;
+
+            switch(lexer->src[lexer->offset])
+            {
+                case '\n':
+                    lexer->token.token_type = TOKEN_BLANK_NEW_LINE;
+                break;
+
+                case '\t':
+                    lexer->token.token_type = TOKEN_BLANK_TAB;
+                break;
+
+                case ' ':
+                    lexer->token.token_type = TOKEN_BLANK_SPACE;
+                break;
+            }
+
+            lexer->offset++;
         }
         else
         {
@@ -821,54 +854,52 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
     return 0;
 }
 
-void vm_print_tokens(struct token_t *tokens)
+char *vm_translate_token_verbose(struct token_t *token)
 {
     char *token_class;
+    // char *token_str;
+    // uint32_t str_len = 0;
+    static char fmt[4096];
+    // char fmt[512];
 
-    while(tokens)
+    switch(token->token_class)
     {
-        switch(tokens->token_class)
-        {
-            case TOKEN_CLASS_STRING_CONSTANT:
-                token_class = "String constant";
-            break;
+        case TOKEN_CLASS_STRING_CONSTANT:
+            token_class = "String constant";
+        break;
 
-            case TOKEN_CLASS_CODE:
-                token_class = "Code";
-            break;
+        case TOKEN_CLASS_CODE:
+            token_class = "Code";
+        break;
 
-            case TOKEN_CLASS_INTEGER_CONSTANT:
-                token_class = "Integer constant";
-            break;
+        case TOKEN_CLASS_INTEGER_CONSTANT:
+            token_class = "Integer constant";
+        break;
 
-            case TOKEN_CLASS_FLOAT_CONSTANT:
-                token_class = "Float constant";
-            break;
+        case TOKEN_CLASS_FLOAT_CONSTANT:
+            token_class = "Float constant";
+        break;
 
-            case TOKEN_CLASS_IDENTIFIER:
-                token_class = "Identifier";
-            break;
+        case TOKEN_CLASS_IDENTIFIER:
+            token_class = "Identifier";
+        break;
 
-            case TOKEN_CLASS_INSTRUCTION:
-                token_class = "Instruction";
-            break;
+        case TOKEN_CLASS_INSTRUCTION:
+            token_class = "Instruction";
+        break;
 
-            case TOKEN_CLASS_PUNCTUATOR:
-                token_class = "Punctuator";
-            break;
-        }
-
-        printf("%s: %s\n", token_class, vm_translate_token(tokens));
-
-        tokens = tokens->next;
+        case TOKEN_CLASS_PUNCTUATOR:
+            token_class = "Punctuator";
+        break;
     }
+
+    sprintf(fmt, "%s: %s", token_class, vm_translate_token(token));
+
+    return fmt;
 }
 
 char *vm_translate_token(struct token_t *token)
 {
-    // char *token_class;
-    // char *token_type;
-
     static char fmt[512];
 
     switch(token->token_class)
@@ -976,6 +1007,7 @@ void vm_init_lexer(struct vm_lexer_t *lexer, const char *src)
     lexer->max_offset = strlen(src);
     lexer->src = src;
     lexer->token.token_class = TOKEN_CLASS_UNKNOWN;
+    lexer->lex_blank = 0;
 }
 
 // void vm_copy_bytes(char *buffer, uint32_t *offset, void *data, uint32_t size)

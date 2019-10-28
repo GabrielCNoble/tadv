@@ -12,7 +12,7 @@ int32_t load_scenes()
     char *file_buffer;
     // char *identifier;
     long file_len;
-    uint32_t offset = 0;
+    // uint32_t offset = 0;
 
     struct scene_t *scene;
 
@@ -38,11 +38,11 @@ int32_t load_scenes()
 	vm_init_lexer(&lexer, file_buffer);
 	do{
 		vm_lex_one_token(&lexer);
-		printf("%s\n", vm_translate_token(&lexer.token));
+		printf("%s\n", vm_translate_token_verbose(&lexer.token));
 		getchar();
 	}while(lexer.token.token_class != TOKEN_CLASS_UNKNOWN);
 
-	return;
+	return 0;
 
     attribs = dat_parse_dat_string(file_buffer);
 
