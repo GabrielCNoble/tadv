@@ -1,28 +1,39 @@
-"You see a door, an altar, a box, and a summoning circle"
+//this is an inline comment
+/*multi
+line
+comment*/
 
-Floor:
+//parenthese are used as in C
+//use LIKE for RegEx comparison
+
+
+"You see a door, an altar, a box, and a summoning circle" //this will call print
+
+Floor{
 	floor_inspect_count = 0
 
-    INSPECT:
-		.floor_inspect_count++{
-			"You lean down and examine the floor. It appears to be made out of floor.",
-			"You take a closer look at the floor. A smooth stone texutre covers the majority of it.",
-			"You examine the floor further. You find a small crack near the door.",
-			"You examine the floor further. Surely this crack must lead to an escape route. It doesn't. The trail goes cold...",
-			"You examine the floor further. Aha! Something new! A spot of grout neaer the side of the wall! Nothing interesting though.",
-			"You really need some new hobbies."
+    INSPECT{ //this is a block of code
+		.floor_inspect_count++{ //this is a switch that uses the value of a variable as case. the period marks a reference to self/this
+			0{"You lean down and examine the floor. It appears to be made out of floor."}
+			1{"You take a closer look at the floor. A smooth stone texutre covers the majority of it."}
+			2{"You examine the floor further. You find a small crack near the door."}
+			3{"You examine the floor further. Surely this crack must lead to an escape route. It doesn't. The trail goes cold..."}
+			4{"You examine the floor further. Aha! Something new! A spot of grout neaer the side of the wall! Nothing interesting though."}
+			else{"You really need some new hobbies."}
 		}
+	}
+}
 
-Circle:
-	has_candle = false
+Circle{
+	has_candle = false //false is 0, true is anything else, like in C/ASM
 
-    INSPECT: "A chalk circle lies on the ground. 'Just add candles!' say the instructions on the altar."
+    INSPECT{"A chalk circle lies on the ground. 'Just add candles!' say the instructions on the altar."} //inspect is a reserved keyword on the game
 
-    USE:
-
-        not .has_candle:
+    USE{
+    	if not .has_candle{
 			"The summoning circle lies dormant. It requires candles to perform a ritual."
-		else:
+		}
+		else{
             "Summon what?"
             "You may summon:"
             "Cthulu the Inconceivable"
@@ -30,16 +41,14 @@ Circle:
             "Cat"
 
             input{
-				"cat":
+				"cat"{
 					toggle Cat.is_summoned
 					"You summon the cat. It meows at you petulently."
 
-					Cat.has_key:
-						"There is a small key around its neck."
-
-				"exomal", "exomal the wise":
-					loop:
-
+					if Cat.has_key{"There is a small key around its neck."}
+				}
+				"exomal", "exomal the wise"{
+					loop{
 						"You summon Exomal the Wise."
 						"They appear to you as a mass of quivering, amorphous tissue and bid you to speak."
 						"\n'Speak, summoner. What is it you wish to discuss?"
@@ -49,7 +58,7 @@ Circle:
 		                "(4)End discussion."
 
 						input{
-							"1", "weather":
+							"1", "weather"{
 
 								"'The weather? The same as always. Drab and hellish.'"
 								"'I must say, that was not the question I expected.'"
@@ -57,18 +66,16 @@ Circle:
 								"(2)Defend your question"
 
 								input{
-									"1", "apologise":
-										"'No apology necessary. It is nice to get such a quaint question.'"
-									else:
-										"'No need to get defensive. You asked a question, and that question was answered.'"
+									"1", "apologise"{"'No apology necessary. It is nice to get such a quaint question.'"}
+									else{"'No need to get defensive. You asked a question, and that question was answered.'"}
 								}
-
-							"2", "42", "life", "meaning of life":
+							}
+							"2", "42", "life", "meaning of life"{
 
 								"'I am flattered that you think so highly of me, that you would believe me to know such a question.'"
 								"'You really ought to be asking a better question if you wish to have an answer.'"
-
-							"3", "who", "who are you", "?":
+							}
+							"3", "who", "who are you", "?"{
 
 								"The being shifts."
 								"'I am... many things. Above all, I am a keeper of knowledge."
@@ -79,10 +86,9 @@ Circle:
 								"(4)Nod and end the conversation."
 
 								input{
-									"4", "end":
-										break
+									"4", "end"{break}
 
-									else:
+									else{
 
 										"I am a mere facimile, and your interaction with this world itself is limited."
 										"I can force you to ask certain questions if I feel, yet my understanding of those questions is limited."
@@ -96,111 +102,133 @@ Circle:
 										"'You see? Neither of us is truly in control here.'"
 										"'I know of this world, yet is that knowledge really useful?'"
 										"'Perhaps you have your answers now. Perhaps not. It matters not."
+									}
 								}
-
-							"4", "end":
-								break
+							}
+							"4", "end"{break}
 						}
-
+					}
 					"Exomal nods. Or... How does he nod? Somehow, you understand his intent."
 	                "He disappears back to whatever place he normally resides."
-
-				"cthulhu", "cthulhu the inconceivable":
+				}
+				"cthulhu", "cthulhu the inconceivable"{
 					"You fail to conceive of Cthulu. As a result, you also cannot conceive of how to summon it."
+				}
 
-				else:
-					"You failed to summon anyone. You loser..."
+				else {"You failed to summon anyone. You loser..."}
 			}
+		}
+		}
+	}
+}
 
-Key:
+Key{
 	is_taken = false
 	is_used = false
 
-    INSPECT:
-		Cat.is_summoned and not .is_taken:
-			"The key shines in the light. Could this mean salvation?"
+    INSPECT{
+		if Cat.is_summoned and not .is_taken {"The key shines in the light. Could this mean salvation?"}
+	}
 
-    TAKE:
-		Cat.is_summoned and Cat.has_key:
+    TAKE{
+		if Cat.is_summoned and Cat.has_key{
 			toggle Cat.has_key
 			toggle .is_taken
 			"You take the key from around the cat's neck.\nIt meows in understanding."
-
-    USE:
-		.is_taken and not .is_used and Door.is_locked:
+		}
+	}
+    USE{
+		if .is_taken and not .is_used and Door.is_locked{
 			"It's a challenge, but the key eventually turns in the rusty lock."
 			toggle .is_used
-			toggle Door.is_locked
-		else:
+			toggle Door.is_locked //negates the "boolean" value of variable
+		}
+		else{
 			"You don't have the key!"
+		}
+	}
+}
 
-Door:
+Door{
 	is_locked = true
 
-    INSPECT:
+    INSPECT{
 		.is_locked? "The door's rusty lock taunts you, preventing you from leaving." : "The door's lock lies at your feet. Are you ready to leave the quiet stability of what you know?"
-
+	}
     OPEN:
-        not .is_locked:
+        if not .is_locked{
 			"You've escaped the room! But you can never escape your own mind."
         	exit;
-
-Cat:
+		}
+}
+Cat{
 	pet_count = 0
 	is_summoned = false
 	has_key = true
 
-	INSPECT:
-		.is_summoned:
+	INSPECT{
+		if .is_summoned{
 			"The fluffy gray cat looks at you curiously. Its name is Nimbus."
-			.has_key:
+			if .has_key{
 				"A small key hangs around the cat's neck."
-
-    PET:
-		.is_summoned:
-        	.pet_count++{
-				1: "You pet the cat. It meows in appreciation.",
-	        	2: "You pet the cat again. It purrs and relaxes into your hand.",
-	        	3: "You pet the cat. It purrs and lies down.",
-	        	4: "You pet the cat. Its eyes close and it relaxes further.",
-	        	5: "You pet the cat. It rolls over to let you rub its belly.",
-	        	6: "You pet the cat's belly. It purrs in appreciation.",
-	        	7: "You pet the cat's belly. It stretches to give you a better reach, then purrs.",
-				8: "You pet the cat's belly. Its eyes close, and it seems to be close to falling asleep.",
-				9: "You pet the cat's belly. It lazily bats its paws around. It seems to be dreaming.",
-				10: "You pet the cat's belly. It stirs, then lets out a soft meow.",
-				11: "You pet the cat's belly. It reaches out its paws toward you.",
-				12: "You pet the cat's belly. You're feeling a bit sleepy yourself now.\nYou feel incredibly relaxed.",
-				13: "You pet the cat's belly. You've enjoyed your time together.",
-				else: "You pet the cat's belly. Its purring is a quiet background noise."
 			}
+		}
+	}
 
-Box:
+	PET{
+		if .is_summoned{
+        	.pet_count++{
+				0{"You pet the cat. It meows in appreciation."}
+	        	1{"You pet the cat again. It purrs and relaxes into your hand."}
+	        	2{"You pet the cat. It purrs and lies down."}
+	        	3{"You pet the cat. Its eyes close and it relaxes further."}
+	        	4{"You pet the cat. It rolls over to let you rub its belly."}
+	        	5{"You pet the cat's belly. It purrs in appreciation."}
+	        	6{"You pet the cat's belly. It stretches to give you a better reach, then purrs."}
+				7{"You pet the cat's belly. Its eyes close, and it seems to be close to falling asleep."}
+				8{"You pet the cat's belly. It lazily bats its paws around. It seems to be dreaming."}
+				9{"You pet the cat's belly. It stirs, then lets out a soft meow."}
+				10{"You pet the cat's belly. It reaches out its paws toward you."}
+				11{"You pet the cat's belly. You're feeling a bit sleepy yourself now.\nYou feel incredibly relaxed."}
+				12{"You pet the cat's belly. You've enjoyed your time together."}
+				else{"You pet the cat's belly. Its purring is a quiet background noise."}
+			}
+		}
+	}
+}
+
+Box{
 	is_open = false
 
-    INSPECT:
+    INSPECT{
         .is_open? "The box lies open in front of you. Countless candles line the sides." : "There is a small cardboard box. It would be so easy to open it..."
+	}
 
-    OPEN:
+	OPEN{
         .is_open? "Box is already open!" : "You open the box. A strong smell of moss invades your nostrils.\nInside is a set of ritual candles."
+	}
+}
 
-
-Candle:
+Candle{
 	is_taken = false
 	is_used = false
 
-    INSPECT:
-		Box.is_open:
-			"A set of ritual candles"
+    INSPECT{
+		if Box.is_open{ "A set of ritual candles" }
+	}
 
-    TAKE:
-		Box.is_open:
+    TAKE{
+		if Box.is_open{
 			.is_taken? "You take the candles and place them in your pack." : "You already took the candles!\nThere are always more, however."
+		}
+	}
 
-    USE:
-		not .is_used and .is_taken:
+	USE{
+		if not .is_used and .is_taken{
 			toggle .is_taken
 			toggle Circle.has_candle
 			"You place the candles around the summoning circle.\nThe circle pulses hungrily, then activates."
-		else:
-			"You don't have candle!"
+		}
+		else{ "You don't have candle!" }
+	}
+}
