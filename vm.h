@@ -160,7 +160,12 @@ enum VM_OPCODES
     VM_OPCODE_RET,
 
     VM_OPCODE_EXIT,
-    // VM_OPCODE_CALL,
+
+    // VM_OPCODE_DOWN,
+    // VM_OPCODE_UP,
+    // VM_OPCODE_GOTO,
+
+    VM_OPCODE_EXEC,
 
 
     VM_OPCODE_FCRSH,
@@ -246,6 +251,15 @@ enum TOKEN_PUNCTUATOR
     TOKEN_PUNCTUATOR_INV_SLASH,
 };
 
+enum TOKEN_KEYWORD
+{
+    TOKEN_KEYWORD_DB = 0,
+    TOKEN_KEYWORD_DW,
+    TOKEN_KEYWORD_DDW,
+    TOKEK_KEYWORD_DF,
+    TOKEN_KEYWORD_UKNOWN,
+};
+
 union token_constant_t
 {
     uint64_t uint_constant;
@@ -268,33 +282,57 @@ unsigned operand0_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
 unsigned operand1_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
 unsigned operand2_class : VM_OPCODE_OPERAND_CLASS_BITS;
 
-struct opcode_t
-{
-    OPCODE_FIELDS;
-};
-
 union operand_t
 {
     uint64_t uint_operand;
     void *ptr_operand;
 };
 
-struct opcode_1op_t
+struct opcode_t
 {
     OPCODE_FIELDS;
-    union operand_t operand;
-};
-struct opcode_2op_t
-{
-    OPCODE_FIELDS;
-    union operand_t operands[2];
+    union operand_t operands[1];
 };
 
-struct opcode_3op_t
+// struct opcode_1op_t
+// {
+//     OPCODE_FIELDS;
+//     union operand_t operand;
+// };
+// struct opcode_2op_t
+// {
+//     OPCODE_FIELDS;
+//     union operand_t operands[2];
+// };
+
+// struct opcode_3op_t
+// {
+//     OPCODE_FIELDS;
+//     union operand_t operands[3];
+// };
+
+/* Custom opcode types */
+struct custom_opcode_t
 {
     OPCODE_FIELDS;
-    union operand_t operands[3];
+    void (*function)(void *operands[3]);
+    union operand_t operands[1];
 };
+
+#define OPCODE_SIZE(opcode_size_type, opcode_size_op_count) (sizeof(opcode_size_type) + (sizeof(union operand_t) * (opcode_size_op_count - 1)))
+// struct custom_opcode_op2_t
+// {
+//     OPCODE_FIELDS;
+//     void (*function)(void *operands[3]);
+//     union operand_t operands[2];
+// };
+
+// struct custom_opcode_op3_t
+// {
+//     OPCODE_FIELDS;
+//     void (*function)(void *operands[3]);
+//     union operand_t operands[3];
+// };
 
 struct code_buffer_t
 {
@@ -319,11 +357,13 @@ struct code_label_t
 
 struct opcode_info_t
 {
-    char name[8];
-    uint8_t offset;
-    uint8_t operand_count;
-    uint16_t allowed_operand_types[3];
-    void (*function)(void *operand0, void *operand1, void *operand2);
+    OPCODE_INFO_T_FIELDS;
+};
+
+struct custom_opcode_info_t
+{
+    OPCODE_INFO_T_FIELDS;
+    void (*function)(void *operands[3]);
 };
 
 struct vm_lexer_t
@@ -371,11 +411,13 @@ void vm_set_last_error(const char *error, ...);
 
 const char *vm_get_error();
 
-struct token_t *vm_alloc_token();
+void vm_register_opcode(const char *name, void (*function)(void *operands[3]), uint32_t operand_count, uint32_t op0_types, uint32_t op1_types, uint32_t op2_types);
 
-void vm_free_token(struct token_t *token);
+// struct token_t *vm_alloc_token();
 
-void vm_free_tokens(struct token_t *tokens);
+// void vm_free_token(struct token_t *token);
+
+// void vm_free_tokens(struct token_t *tokens);
 
 
 #endif

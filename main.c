@@ -3,8 +3,9 @@
 // #define SDL_MAIN_HANDLED
 // #include "SDL.h"
 #include "vm.h"
-#include "scene.h"
-#include "player.h"
+#include "interactable.h"
+// #include "scene.h"
+// #include "player.h"
 
 int main(int argc, char *argv[])
 {

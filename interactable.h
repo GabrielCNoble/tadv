@@ -24,9 +24,12 @@ struct interactable_t
     struct interactable_t *next;
     struct interactable_t *prev;
     
-    struct interactable_t *over;
-    struct interactable_t *inside;
-    struct interactable_t *under;
+    // struct interactable_t *over;
+    // struct interactable_t *inside;
+    // struct interactable_t *under;
+
+    struct interactable_t *children;
+    struct interactable_t *parent;
 
     struct dat_attrib_t *attribs;
 
@@ -34,6 +37,12 @@ struct interactable_t
     uint32_t flags;
     struct code_buffer_t acions[INTERACTION_TYPE_LAST];
 };
+
+void it_load_story(char *file_name);
+
+struct interactable_t *it_build_interactable_list(struct dat_attrib_t *attrib, struct interactable_t *parent);
+
+struct interactable_t *it_get_interactable(struct interactable_t *start, char *name);
 
 void it_unlink(struct interactable_t *interactable);
 
