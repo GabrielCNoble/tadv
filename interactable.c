@@ -1,7 +1,9 @@
 #include "interactable.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-struct interactable_t *it_interactables = NULL;
+struct interactable_t it_interactables;
 
 void it_load_story(char *file_name)
 {
@@ -32,7 +34,8 @@ void it_load_story(char *file_name)
 
     attribs = dat_parse_dat_string(file_buffer);
 
-    it_interactables = it_build_interactable_list(attribs, NULL);
+    it_interactables.name = "it_interactables";
+    it_interactables.children = it_build_interactable_list(attribs, NULL);
     // attrib = attribs;
     // while(attrib)
     // {
@@ -128,66 +131,110 @@ struct interactable_t *it_get_interactable(struct interactable_t *start, char *n
     
     /* avoiding exposing it_interactables to other files. For a global
     search, just pass NULL as start point */
-    start = start ? start : it_interactables;
+    start = start ? start : it_interactables.children;
     return it_get_interactable_recursive(start, &lexer); 
 }
 
-void it_unlink(struct interactable_t *interactable)
+void it_add_interactable(struct interactable_t *interactable)
 {
-    if(interactable)
+    it_add_child(&it_interactables, interactable);
+}
+
+void it_add_child(struct interactable_t *parent, struct interactable_t *child)
+{
+    if(parent && child && child->parent != parent)
     {
-        if(interactable->prev)
+        it_remove_child(child->parent, child);
+
+        child->next = parent->children;
+
+        if(parent->children)
         {
-            interactable->prev->next = interactable->next;
+            parent->children->prev = child;
         }
 
-        if(interactable->next)
+        parent->children = child;
+        child->parent = parent;
+    }
+}
+
+void it_remove_child(struct interactable_t *parent, struct interactable_t *child)
+{
+    if(parent && child && child->parent == parent)
+    {
+        if(child->prev)
         {
-            interactable->next->prev = interactable->prev;
+            child->prev->next = child->next;
         }
+
+        if(child->next)
+        {
+            child->next->prev = child->prev;
+        }
+
+        if(parent->children == child)
+        {
+            parent->children = child->next;
+        }
+    }
+}
+
+// void it_unlink(struct interactable_t *interactable)
+// {
+//     if(interactable)
+//     {
+//         if(interactable->prev)
+//         {
+//             interactable->prev->next = interactable->next;
+//         }
+
+//         if(interactable->next)
+//         {
+//             interactable->next->prev = interactable->prev;
+//         }
     
-        interactable->next = NULL;
-        interactable->prev = NULL;
-    }
-}
+//         interactable->next = NULL;
+//         interactable->prev = NULL;
+//     }
+// }
 
-void it_link_before(struct interactable_t *link_to, struct interactable_t *to_link)
-{
-    if(link_to && to_link)
-    {
-        if(link_to->prev)
-        {
-            link_to->prev->next = to_link;
-        }
+// void it_link_before(struct interactable_t *link_to, struct interactable_t *to_link)
+// {
+//     if(link_to && to_link)
+//     {
+//         if(link_to->prev)
+//         {
+//             link_to->prev->next = to_link;
+//         }
 
-        to_link->prev = link_to->prev;
-        to_link->next = link_to;
-        link_to->prev = to_link;
-    }
-}
+//         to_link->prev = link_to->prev;
+//         to_link->next = link_to;
+//         link_to->prev = to_link;
+//     }
+// }
 
-void it_link_after(struct interactable_t *link_to, struct interactable_t *to_link)
-{
-    if(link_to && to_link)
-    {
-        if(link_to->next)
-        {
-            link_to->next->prev = to_link;
-        }
+// void it_link_after(struct interactable_t *link_to, struct interactable_t *to_link)
+// {
+//     if(link_to && to_link)
+//     {
+//         if(link_to->next)
+//         {
+//             link_to->next->prev = to_link;
+//         }
 
-        to_link->next = link_to->next;
-        to_link->prev = link_to;
-        link_to->next = to_link;
-    }
-}
+//         to_link->next = link_to->next;
+//         to_link->prev = link_to;
+//         link_to->next = to_link;
+//     }
+// }
 
-void it_interact(struct interactable_t *interactable, uint32_t interaction)
-{
-    if(interactable)
-    {
-        if(interactable->flags & interaction)
-        {
+// void it_interact(struct interactable_t *interactable, uint32_t interaction)
+// {
+//     if(interactable)
+//     {
+//         if(interactable->flags & interaction)
+//         {
             
-        }
-    }
-}
+//         }
+//     }
+// }

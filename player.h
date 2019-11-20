@@ -1,9 +1,9 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-// #include "interactable.h"
+void p_init();
 
-// void p_take_item(struct interactable_t *item);
+void p_take_item(struct interactable_t *item);
 
 // void p_drop_item(struct interactable_t *item);
 

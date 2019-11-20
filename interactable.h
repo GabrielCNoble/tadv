@@ -44,12 +44,20 @@ struct interactable_t *it_build_interactable_list(struct dat_attrib_t *attrib, s
 
 struct interactable_t *it_get_interactable(struct interactable_t *start, char *name);
 
-void it_unlink(struct interactable_t *interactable);
+void it_add_interactable(struct interactable_t *interactable);
 
-void it_link_before(struct interactable_t *link_to, struct interactable_t *to_link);
+void it_add_child(struct interactable_t *parent, struct interactable_t *child);
 
-void it_link_after(struct interactable_t *link_to, struct interactable_t *to_link);
+void it_remove_child(struct interactable_t *parent, struct interactable_t *child);
 
-void it_interact(struct interactable_t *interactable, uint32_t interaction);
+
+
+// void it_unlink(struct interactable_t *interactable);
+
+// void it_link_before(struct interactable_t *link_to, struct interactable_t *to_link);
+
+// void it_link_after(struct interactable_t *link_to, struct interactable_t *to_link);
+
+// void it_interact(struct interactable_t *interactable, uint32_t interaction);
 
 #endif 

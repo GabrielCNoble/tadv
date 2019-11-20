@@ -2083,6 +2083,11 @@ const char *vm_get_error()
     return error;
 }
 
+void vm_set_gpr_value(uint64_t *value, uint32_t gpr_index)
+{
+    //
+}
+
 void vm_register_opcode(const char *name, void (*function)(void *operands[3]), uint32_t operand_count, uint32_t op0_types, uint32_t op1_types, uint32_t op2_types)
 {
     for(uint32_t i = 0; i < VM_OPCODE_LAST; i++)

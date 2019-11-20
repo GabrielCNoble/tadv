@@ -1,19 +1,24 @@
-// #include "player.h"
+#include "player.h"
+#include "interactable.h"
 // #include "scene.h"
 // #include "vm.h"
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+struct interactable_t *pack = NULL;
 
-// struct interactable_list_t items;
-// struct interactable_t *selected_item = NULL;
+void p_init()
+{
+    pack = calloc(sizeof(struct interactable_t), 1);
+    pack->name = strdup("pack");
+    it_add_interactable(pack);
+}
 
-// void p_take_item(struct interactable_t *item)
-// {
-//     it_unlink(item);
-//     it_append(&items, item);
-// }
+void p_take_item(struct interactable_t *item)
+{
+    it_add_child(pack, item);
+}
 
 // void p_drop_item(struct interactable_t *item)
 // {

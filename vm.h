@@ -24,7 +24,7 @@ enum VM_OPCODES
 
         'ldsc string', where 'string' is the scene name
     */
-    VM_OPCODE_LDSC,
+    // VM_OPCODE_LDSC,
 
     /*
         ldsca: gets the reference of a scene attribute. The scene from which
@@ -48,9 +48,9 @@ enum VM_OPCODES
         string that represents the attribute name. Using the same register as source
         and destination is valid.
     */
-    VM_OPCODE_LDSCA,
+    // VM_OPCODE_LDSCA,
 
-    VM_OPCODE_CHGSC,             /* changes to another scene */
+    // VM_OPCODE_CHGSC,             /* changes to another scene */
 
 
     /*
@@ -59,7 +59,7 @@ enum VM_OPCODES
         'ldi ri(0-1), interactable', where 'interactable' is a string that represents
         the name of an interactable, and ri(0-1) is a interactible register
     */
-    VM_OPCODE_LDI,
+    // VM_OPCODE_LDI,
 
     /*
         ldia: gets the address of an interactable attribute. Attribute
@@ -70,7 +70,7 @@ enum VM_OPCODES
         to a interactible, and r(0-3) is a general purpouse register, which will receive the
         pointer to the attribute
     */
-    VM_OPCODE_LDIA,
+    // VM_OPCODE_LDIA,
 
 
     /*
@@ -115,6 +115,8 @@ enum VM_OPCODES
         cmpsstr: compares a substring to a string
     */
     VM_OPCODE_CMPSSTR,
+
+    VM_OPCODE_CMPSREGEX,
 
     /*
         jmp: performs an unconditional jump.
@@ -350,7 +352,7 @@ struct code_label_t
 
 
 #define OPCODE_INFO_T_FIELDS            \
-    char name[8];                       \
+    char name[14];                      \
     uint8_t offset;                     \
     uint8_t operand_count;              \
     uint16_t allowed_operand_types[3]
@@ -410,6 +412,8 @@ void vm_print_registers();
 void vm_set_last_error(const char *error, ...);
 
 const char *vm_get_error();
+
+void vm_set_gpr_value(uint64_t *value, uint32_t gpr_index);
 
 void vm_register_opcode(const char *name, void (*function)(void *operands[3]), uint32_t operand_count, uint32_t op0_types, uint32_t op1_types, uint32_t op2_types);
 
