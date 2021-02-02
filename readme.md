@@ -1,4 +1,4 @@
-#tadv
+# tadv
 
 This is a small virtual machine built to create small text adventure games, similar to zork.
 
@@ -11,7 +11,7 @@ Move instructions can move data directly between different memory locations, wit
 The project sort of grew out of control, becoming less of a text adventure virtual machine, to be more of a general purpose cpu. Since implementing the game logic using assembly quickly became cumbersome, the idea of creating a higher level language for that purpose appeared. The syntax is not yet fully worked out, but is also something I plan to do. 
 
 
-###.dat
+### .dat
 Scenes are defined in a format called .dat, which defines scenes, interactables inside the scene and attributes of interactables. Each scene can contain as many interactables as desired. 
 
 Each interactable can have as many attributes as desired. And attributes can be numeric, boolean, string or a script. 
