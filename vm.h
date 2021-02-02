@@ -24,7 +24,7 @@ enum VM_OPCODES
 
         'ldsc string', where 'string' is the scene name
     */
-    VM_OPCODE_LDSC,
+    // VM_OPCODE_LDSC,
 
     /*
         ldsca: gets the reference of a scene attribute. The scene from which
@@ -48,9 +48,9 @@ enum VM_OPCODES
         string that represents the attribute name. Using the same register as source
         and destination is valid.
     */
-    VM_OPCODE_LDSCA,
+    // VM_OPCODE_LDSCA,
 
-    VM_OPCODE_CHGSC,             /* changes to another scene */
+    // VM_OPCODE_CHGSC,             /* changes to another scene */
 
 
     /*
@@ -59,7 +59,7 @@ enum VM_OPCODES
         'ldi ri(0-1), interactable', where 'interactable' is a string that represents
         the name of an interactable, and ri(0-1) is a interactible register
     */
-    VM_OPCODE_LDI,
+    // VM_OPCODE_LDI,
 
     /*
         ldia: gets the address of an interactable attribute. Attribute
@@ -70,7 +70,7 @@ enum VM_OPCODES
         to a interactible, and r(0-3) is a general purpouse register, which will receive the
         pointer to the attribute
     */
-    VM_OPCODE_LDIA,
+    // VM_OPCODE_LDIA,
 
 
     /*
@@ -115,6 +115,8 @@ enum VM_OPCODES
         cmpsstr: compares a substring to a string
     */
     VM_OPCODE_CMPSSTR,
+
+    VM_OPCODE_CMPSREGEX,
 
     /*
         jmp: performs an unconditional jump.
@@ -161,9 +163,11 @@ enum VM_OPCODES
 
     VM_OPCODE_EXIT,
 
-    VM_OPCODE_DOWN,
-    VM_OPCODE_UP,
-    VM_OPCODE_GOTO,
+    // VM_OPCODE_DOWN,
+    // VM_OPCODE_UP,
+    // VM_OPCODE_GOTO,
+
+    VM_OPCODE_EXEC,
 
 
     VM_OPCODE_FCRSH,
@@ -280,33 +284,57 @@ unsigned operand0_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
 unsigned operand1_class : VM_OPCODE_OPERAND_CLASS_BITS;                 \
 unsigned operand2_class : VM_OPCODE_OPERAND_CLASS_BITS;
 
-struct opcode_t
-{
-    OPCODE_FIELDS;
-};
-
 union operand_t
 {
     uint64_t uint_operand;
     void *ptr_operand;
 };
 
-struct opcode_1op_t
+struct opcode_t
 {
     OPCODE_FIELDS;
-    union operand_t operand;
-};
-struct opcode_2op_t
-{
-    OPCODE_FIELDS;
-    union operand_t operands[2];
+    union operand_t operands[1];
 };
 
-struct opcode_3op_t
+// struct opcode_1op_t
+// {
+//     OPCODE_FIELDS;
+//     union operand_t operand;
+// };
+// struct opcode_2op_t
+// {
+//     OPCODE_FIELDS;
+//     union operand_t operands[2];
+// };
+
+// struct opcode_3op_t
+// {
+//     OPCODE_FIELDS;
+//     union operand_t operands[3];
+// };
+
+/* Custom opcode types */
+struct custom_opcode_t
 {
     OPCODE_FIELDS;
-    union operand_t operands[3];
+    void (*function)(void *operands[3]);
+    union operand_t operands[1];
 };
+
+#define OPCODE_SIZE(opcode_size_type, opcode_size_op_count) (sizeof(opcode_size_type) + (sizeof(union operand_t) * (opcode_size_op_count - 1)))
+// struct custom_opcode_op2_t
+// {
+//     OPCODE_FIELDS;
+//     void (*function)(void *operands[3]);
+//     union operand_t operands[2];
+// };
+
+// struct custom_opcode_op3_t
+// {
+//     OPCODE_FIELDS;
+//     void (*function)(void *operands[3]);
+//     union operand_t operands[3];
+// };
 
 struct code_buffer_t
 {
@@ -324,18 +352,20 @@ struct code_label_t
 
 
 #define OPCODE_INFO_T_FIELDS            \
-    char name[8];                       \
+    char name[14];                      \
     uint8_t offset;                     \
     uint8_t operand_count;              \
     uint16_t allowed_operand_types[3]
 
 struct opcode_info_t
 {
-    char name[8];
-    uint8_t offset;
-    uint8_t operand_count;
-    uint16_t allowed_operand_types[3];
-    void (*function)(void *operand0, void *operand1, void *operand2);
+    OPCODE_INFO_T_FIELDS;
+};
+
+struct custom_opcode_info_t
+{
+    OPCODE_INFO_T_FIELDS;
+    void (*function)(void *operands[3]);
 };
 
 struct vm_lexer_t
@@ -383,11 +413,15 @@ void vm_set_last_error(const char *error, ...);
 
 const char *vm_get_error();
 
-struct token_t *vm_alloc_token();
+void vm_set_gpr_value(uint64_t *value, uint32_t gpr_index);
 
-void vm_free_token(struct token_t *token);
+void vm_register_opcode(const char *name, void (*function)(void *operands[3]), uint32_t operand_count, uint32_t op0_types, uint32_t op1_types, uint32_t op2_types);
 
-void vm_free_tokens(struct token_t *tokens);
+// struct token_t *vm_alloc_token();
+
+// void vm_free_token(struct token_t *token);
+
+// void vm_free_tokens(struct token_t *tokens);
 
 
 #endif
