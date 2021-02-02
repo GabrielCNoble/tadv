@@ -98,12 +98,15 @@ struct register_info_t
                            .allowed_operand_types[2] = a2}
 
 
+
+char *keywords[TOKEN_KEYWORD_UKNOWN] = {};
 struct opcode_info_t opcode_info[VM_OPCODE_MAX] = {};
 uint32_t custom_opcode_count = 0;
 // struct custom_opcode_info_t custom_opcode_info[VM_OPCODE_MAX - VM_OPCODE_LAST] = {};
 char char_map[512] = {CHAR_TYPE_BLANK};
 
-struct scene_t *reg_scn = NULL;
+// struct scene_t *reg_scn = NULL;
+
 void *reg_pc;
 uint8_t reg_status;
 char *gp_reg_names[] = {"r0", "r1", "r2", "r3"};
@@ -116,6 +119,7 @@ char *stack;
 
 uint64_t gp_regs[GP_REGS_COUNT];
 struct interactible_t *i_regs[I_REGS_COUNT];
+// struct interactable_t *ai_reg;
 
 
 
@@ -247,11 +251,17 @@ void vm_init()
     opcode_info[VM_OPCODE_IN] = OPCODE("in", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER, 0, 0);
     opcode_info[VM_OPCODE_RET] = OPCODE("ret", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_GP_REGISTER | OPERAND_TYPE_INT_CONSTANT, 0, 0);
     opcode_info[VM_OPCODE_EXIT] = OPCODE("exit", sizeof(struct opcode_t), 0, 0, 0, 0);
-    // opcode_info[VM_OPCODE_CALL] = OPCODE("call", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_LABEL | OPERAND_TYPE_GP_REGISTER, 0, 0);
-
+    opcode_info[VM_OPCODE_DOWN] = OPCODE("down", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT | OPERAND_TYPE_GP_REGISTER, 0, 0);
+    opcode_info[VM_OPCODE_UP] = OPCODE("up", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_INT_CONSTANT | OPERAND_TYPE_GP_REGISTER, 0, 0);
+    opcode_info[VM_OPCODE_GOTO] = OPCODE("goto", sizeof(struct opcode_1op_t), 1, OPERAND_TYPE_STRING_CONSTANT | OPERAND_TYPE_GP_REGISTER, 0, 0); 
+   
     opcode_info[VM_OPCODE_FCRSH] = OPCODE("fcrsh", sizeof(struct opcode_t), 0, 0, 0, 0);
 
+    keywords[TOKEN_KEYWORD_DB] = "db";
+    keywords[TOKEN_KEYWORD_DW] = "dw";
+    keywords[TOKEN_KEYWORD_DDW] = "ddw";
 
+    
 
     char_map['_'] = CHAR_TYPE_LETTER;
 
@@ -796,6 +806,18 @@ uint32_t vm_lex_one_token(struct vm_lexer_t *lexer)
                         lexer->token.token_class = TOKEN_CLASS_INSTRUCTION;
                         lexer->token.constant.uint_constant = i;
                         break;
+                    }
+                }
+
+                if(lexer->token.token_class != TOKEN_CLASS_INSTRUCTION)
+                {
+                    for(uint32_t i = 0; keywords[i]; i++)
+                    {
+                        if(!strcmp(lexer->token_str, keywords[i]))
+                        {
+                            lexer->token.token_class = TOKEN_CLASS_KEYWORD;
+                            lexer->token.token_type = 
+                        }
                     }
                 }
             }
@@ -1898,12 +1920,12 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
             break;
 
             case VM_OPCODE_LDSC:
-                reg_scn = get_scene(*(char **)addresses[0]);
+                // reg_scn = get_scene(*(char **)addresses[0]);
             break;
 
             case VM_OPCODE_LDI:
-                interactable = get_interactable(reg_scn, *(char **)addresses[1]);
-                memcpy(addresses[0], &interactable, sizeof(struct interactable_t *));
+                // interactable = get_interactable(reg_scn, *(char **)addresses[1]);
+                // memcpy(addresses[0], &interactable, sizeof(struct interactable_t *));
             break;
 
             case VM_OPCODE_LDIA:
@@ -1931,6 +1953,18 @@ uint64_t vm_execute_code(struct code_buffer_t *code_buffer)
 
             case VM_OPCODE_EXIT:
                 exit(0);
+            break;
+
+            case VM_OPCODE_DOWN:
+                
+            break;
+
+            case VM_OPCODE_UP:
+
+            break;
+
+            case VM_OPCODE_GOTO:
+
             break;
 
             case VM_OPCODE_FCRSH:
